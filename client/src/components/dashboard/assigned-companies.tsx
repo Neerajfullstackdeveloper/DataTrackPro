@@ -1,11 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Loader2, Building, Phone, Mail, Globe, MapPin, Users, Calendar, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 export function AssignedCompanies() {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  
   const { data: companies = [], isLoading } = useQuery({
     queryKey: ["/api/companies/my"],
     queryFn: async () => {
@@ -13,6 +19,34 @@ export function AssignedCompanies() {
       return response.json();
     },
   });
+
+  const requestDataMutation = useMutation({
+    mutationFn: async (data: { requestType: string; industry: string; justification: string }) => {
+      const response = await apiRequest("POST", "/api/data-requests", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Data request submitted",
+        description: "Your request will be reviewed by an admin.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to submit data request. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRequestData = () => {
+    requestDataMutation.mutate({
+      requestType: "company_data",
+      industry: "any",
+      justification: "Requesting access to company data",
+    });
+  };
 
   if (isLoading) {
     return (
@@ -32,9 +66,15 @@ export function AssignedCompanies() {
           <div className="text-center py-8">
             <Building className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No companies assigned yet</h3>
-            <p className="text-gray-600">
-              Your assigned companies will appear here after your data request is approved by an admin.
+            <p className="text-gray-600 mb-4">
+              You need to request access to company data. Once approved, your assigned companies will appear here.
             </p>
+            <Button onClick={handleRequestData} disabled={requestDataMutation.isPending}>
+              {requestDataMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Request Company Data
+            </Button>
           </div>
         </CardContent>
       </Card>
