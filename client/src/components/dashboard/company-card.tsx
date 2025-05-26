@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Company } from "@shared/schema";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import "./comapanyCard.css"
 
 interface CompanyCardProps {
   company: Company;
@@ -20,7 +21,7 @@ export function CompanyCard({ company, onAddComment, statusColor }: CompanyCardP
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow border border-solid border-black">
+    <Card className="hover:shadow-md transition-shadow" id="mncrd">
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
