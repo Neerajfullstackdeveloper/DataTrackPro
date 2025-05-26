@@ -85,11 +85,10 @@ export function registerRoutes(app: Express): Server {
     
     try {
       const validatedData = insertCompanySchema.parse(req.body);
-      // Only assign to user if they are an employee
-      const assignedToUserId = ["employee"].includes(req.user!.role) ? req.user!.id : null;
+      // Create company without assigning to any user by default
       const company = await storage.createCompany({
         ...validatedData,
-        assignedToUserId,
+        assignedToUserId: undefined, // Use undefined instead of null
       });
       res.status(201).json(company);
     } catch (error) {
@@ -751,7 +750,7 @@ export function registerRoutes(app: Express): Server {
     try {
       const { name, address, email, phone, products, services } = req.body;
       
-      // Create company with products and services in notes
+      // Create company without assigning to any user by default
       const company = await storage.createCompany({
         name,
         industry: "General", // Default industry
@@ -761,7 +760,7 @@ export function registerRoutes(app: Express): Server {
         website: "", // Optional
         companySize: "Medium", // Default size
         notes: `Products: ${products.join(", ")}\nServices: ${services.join(", ")}`,
-        assignedToUserId: req.user!.id, // Assign to the user who created it
+        assignedToUserId: undefined, // Use undefined instead of null
       });
       
       res.status(201).json(company);
