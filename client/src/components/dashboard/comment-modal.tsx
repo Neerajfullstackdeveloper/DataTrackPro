@@ -37,8 +37,7 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/comments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/comments/company", company.id] });
       toast({ title: "Comment added successfully" });
       onClose();
       setFormData({
