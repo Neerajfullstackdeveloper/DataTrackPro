@@ -23,9 +23,9 @@ export function CompanyCard({ company, onAddComment, statusColor }: CompanyCardP
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4" id="mncrd">
+        <div className="flex items-start justify-around mb-4" id="mncrd">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">{company.name}</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">{company.name}</h3>
             <p className="text-sm text-gray-600 capitalize">{company.industry}</p>
           </div>
           {getStatusBadge()}
