@@ -3,14 +3,17 @@ import { apiRequest } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Building, Phone, Mail, Globe, MapPin, Users, Calendar, Clock } from "lucide-react";
+import { Loader2, Building, Phone, Mail, Globe, MapPin, Users, Calendar, Clock, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { CommentModal } from "./comment-modal";
+import { useState } from "react";
 
 export function AssignedCompanies() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [selectedCompany, setSelectedCompany] = useState<any>(null);
   
   const { data: companies = [], isLoading } = useQuery({
     queryKey: ["/api/companies/my"],
@@ -18,6 +21,17 @@ export function AssignedCompanies() {
       const response = await apiRequest("GET", "/api/companies/my");
       return response.json();
     },
+  });
+
+  // Add query for comments
+  const { data: comments = [], isLoading: commentsLoading } = useQuery({
+    queryKey: ["/api/comments/company", selectedCompany?.id],
+    queryFn: async () => {
+      if (!selectedCompany) return [];
+      const response = await apiRequest("GET", `/api/comments/company/${selectedCompany.id}`);
+      return response.json();
+    },
+    enabled: !!selectedCompany,
   });
 
   const requestDataMutation = useMutation({
@@ -156,6 +170,52 @@ export function AssignedCompanies() {
                     </div>
                   )}
 
+                  {/* Comments Section */}
+                  <div className="mt-4 border-t border-gray-100 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="font-medium text-gray-900 flex items-center">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Comments
+                      </h5>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedCompany(company)}
+                      >
+                        Add Comment
+                      </Button>
+                    </div>
+                    
+                    {selectedCompany?.id === company.id && commentsLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      </div>
+                    ) : selectedCompany?.id === company.id && comments.length > 0 ? (
+                      <div className="space-y-3 max-h-48 overflow-y-auto">
+                        {comments.map((comment: any) => (
+                          <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-900">
+                                {comment.user?.fullName || 'Unknown User'}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">{comment.content}</p>
+                            <Badge variant="outline" className="mt-2 capitalize">
+                              {comment.category}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : selectedCompany?.id === company.id ? (
+                      <p className="text-sm text-gray-500 text-center py-2">
+                        No comments yet. Be the first to comment!
+                      </p>
+                    ) : null}
+                  </div>
+
                   <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
                     <div className="flex items-center">
                       <Calendar className="h-3 w-3 mr-1" />
@@ -172,6 +232,15 @@ export function AssignedCompanies() {
           ))}
         </div>
       </CardContent>
+
+      {/* Comment Modal */}
+      {selectedCompany && (
+        <CommentModal
+          company={selectedCompany}
+          isOpen={!!selectedCompany}
+          onClose={() => setSelectedCompany(null)}
+        />
+      )}
     </Card>
   );
 } 
