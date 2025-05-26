@@ -85,9 +85,11 @@ export function registerRoutes(app: Express): Server {
     
     try {
       const validatedData = insertCompanySchema.parse(req.body);
+      // Only assign to user if they are an employee
+      const assignedToUserId = ["employee"].includes(req.user!.role) ? req.user!.id : null;
       const company = await storage.createCompany({
         ...validatedData,
-        assignedToUserId: req.user!.id,
+        assignedToUserId,
       });
       res.status(201).json(company);
     } catch (error) {
@@ -824,6 +826,30 @@ export function registerRoutes(app: Express): Server {
         error: "Failed to fetch Facebook data",
         details: error instanceof Error ? error.message : "Unknown error"
       });
+    }
+  });
+
+  app.post("/api/companies/:id/category", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { id } = req.params;
+      const { category } = req.body;
+      
+      // Only main admin can change category of assigned companies
+      const company = await storage.getCompany(parseInt(id));
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+      
+      if (company.assignedToUserId && req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Only main admin can change category of assigned companies" });
+      }
+      
+      await storage.updateCompanyStatus(parseInt(id), category);
+      res.sendStatus(200);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update company category" });
     }
   });
 
