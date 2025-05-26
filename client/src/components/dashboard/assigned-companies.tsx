@@ -28,11 +28,19 @@ export function AssignedCompanies() {
     queryKey: ["/api/comments/company", selectedCompany?.id],
     queryFn: async () => {
       if (!selectedCompany) return [];
+      console.log('Fetching comments for company:', selectedCompany.id);
       const response = await apiRequest("GET", `/api/comments/company/${selectedCompany.id}`);
-      return response.json();
+      const data = await response.json();
+      console.log('Received comments:', data);
+      return data;
     },
     enabled: !!selectedCompany,
   });
+
+  // Add debug logs for selected company
+  console.log('Selected company:', selectedCompany);
+  console.log('Comments:', comments);
+  console.log('Comments loading:', commentsLoading);
 
   const requestDataMutation = useMutation({
     mutationFn: async (data: { requestType: string; industry: string; justification: string }) => {
@@ -180,7 +188,10 @@ export function AssignedCompanies() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedCompany(company)}
+                        onClick={() => {
+                          console.log('Setting selected company:', company);
+                          setSelectedCompany(company);
+                        }}
                       >
                         Add Comment
                       </Button>
@@ -192,22 +203,25 @@ export function AssignedCompanies() {
                       </div>
                     ) : selectedCompany?.id === company.id && comments.length > 0 ? (
                       <div className="space-y-3 max-h-48 overflow-y-auto">
-                        {comments.map((comment: any) => (
-                          <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium text-gray-900">
-                                {comment.user?.fullName || 'Unknown User'}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
-                              </span>
+                        {comments.map((comment: any) => {
+                          console.log('Rendering comment:', comment);
+                          return (
+                            <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {comment.user?.fullName || 'Unknown User'}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600">{comment.content}</p>
+                              <Badge variant="outline" className="mt-2 capitalize">
+                                {comment.category}
+                              </Badge>
                             </div>
-                            <p className="text-sm text-gray-600">{comment.content}</p>
-                            <Badge variant="outline" className="mt-2 capitalize">
-                              {comment.category}
-                            </Badge>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : selectedCompany?.id === company.id ? (
                       <p className="text-sm text-gray-500 text-center py-2">
