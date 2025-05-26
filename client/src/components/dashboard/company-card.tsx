@@ -21,7 +21,9 @@ export function CompanyCard({ company, onAddComment, statusColor }: CompanyCardP
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow border border-solid border-black" id="mncrd">
+    <Card className="hover:shadow-md transition-shadow border border-solid border-black" 
+    style={{ borderWidth: "5px", borderStyle: "solid", borderColor: "black" }} 
+    id="mncrd">
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
