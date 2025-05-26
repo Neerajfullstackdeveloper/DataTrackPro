@@ -213,7 +213,11 @@ export function AssignedCompanies() {
                       <p className="text-sm text-gray-500 text-center py-2">
                         No comments yet. Be the first to comment!
                       </p>
-                    ) : null}
+                    ) : (
+                      <p className="text-sm text-gray-500 text-center py-2">
+                        Click "Add Comment" to view or add comments
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
