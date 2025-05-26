@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { User as UserType, Section } from "@shared/schema";
 import { 
   Database, 
@@ -233,20 +234,23 @@ export function Sidebar({
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-200">
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => logoutMutation.mutate()}
-              disabled={logoutMutation.isPending}
-            >
-              {logoutMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <LogOut className="h-4 w-4 mr-2" />
-              )}
-              <span>Logout</span>
-            </Button>
+          <div className="mt-auto p-4 border-t border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <ThemeToggle />
+              <Button
+                variant="outline"
+                className="flex-1 ml-2 justify-start"
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+              >
+                {logoutMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <LogOut className="h-4 w-4 mr-2" />
+                )}
+                <span>Logout</span>
+              </Button>
+            </div>
           </div>
         </div>
       </aside>

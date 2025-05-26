@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { CommentModal } from "./comment-modal";
 import { useState } from "react";
-
+import "./companyCard.css"
 export function AssignedCompanies() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -72,7 +72,7 @@ export function AssignedCompanies() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" id="mncrd">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
