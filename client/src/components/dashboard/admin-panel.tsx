@@ -835,134 +835,16 @@ export function AdminPanel() {
   );
 
   const renderCompanies = () => (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Company Management</h2>
-        <p className="text-gray-600">Add and manage company records for all employees</p>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900">Company Management</h2>
+        <Button onClick={() => setIsCreateCompanyOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Company
+        </Button>
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>All Companies</CardTitle>
-            <div className="flex space-x-3">
-              <Dialog open={isCreateCompanyOpen} onOpenChange={setIsCreateCompanyOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Company
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Add New Company</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleCreateCompany} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="companyName">Company Name</Label>
-                        <Input
-                          id="companyName"
-                          value={newCompanyData.name}
-                          onChange={(e) => setNewCompanyData({...newCompanyData, name: e.target.value})}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="industry">Industry</Label>
-                        <Select value={newCompanyData.industry} onValueChange={(value) => setNewCompanyData({...newCompanyData, industry: value})}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select industry" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="technology">Technology</SelectItem>
-                            <SelectItem value="healthcare">Healthcare</SelectItem>
-                            <SelectItem value="finance">Finance</SelectItem>
-                            <SelectItem value="retail">Retail</SelectItem>
-                            <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                            <SelectItem value="education">Education</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="companyEmail">Email</Label>
-                        <Input
-                          id="companyEmail"
-                          type="email"
-                          value={newCompanyData.email}
-                          onChange={(e) => setNewCompanyData({...newCompanyData, email: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="phone">Phone</Label>
-                        <Input
-                          id="phone"
-                          value={newCompanyData.phone}
-                          onChange={(e) => setNewCompanyData({...newCompanyData, phone: e.target.value})}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="address">Address</Label>
-                      <Input
-                        id="address"
-                        value={newCompanyData.address}
-                        onChange={(e) => setNewCompanyData({...newCompanyData, address: e.target.value})}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="website">Website</Label>
-                        <Input
-                          id="website"
-                          value={newCompanyData.website}
-                          onChange={(e) => setNewCompanyData({...newCompanyData, website: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="assignUser">Assign to User</Label>
-                        <Select value={newCompanyData.assignedToUserId} onValueChange={(value) => setNewCompanyData({...newCompanyData, assignedToUserId: value})}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select user (optional)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {users.map((userItem) => (
-                              <SelectItem key={userItem.id} value={userItem.id.toString()}>
-                                {userItem.fullName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="notes">Notes</Label>
-                      <Textarea
-                        id="notes"
-                        value={newCompanyData.notes}
-                        onChange={(e) => setNewCompanyData({...newCompanyData, notes: e.target.value})}
-                        rows={3}
-                      />
-                    </div>
-                    <div className="flex justify-end space-x-3">
-                      <Button type="button" variant="outline" onClick={() => setIsCreateCompanyOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button type="submit" disabled={createCompanyMutation.isPending}>
-                        {createCompanyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Company"}
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-              <Button onClick={() => setActiveTab("overview")}>
-                Back to Overview
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
         <CardContent>
           {companiesLoading ? (
             <div className="flex items-center justify-center py-8">
@@ -975,14 +857,18 @@ export function AdminPanel() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="font-medium text-gray-900">{company.name}</h4>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => deleteCompanyMutation.mutate(company.id)}
-                        disabled={deleteCompanyMutation.isPending}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <div className="flex space-x-2">
+                        {(!company.assignedToUserId || user?.role === "admin") && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteCompanyMutation.mutate(company.id)}
+                            disabled={deleteCompanyMutation.isPending}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <p className="text-sm text-gray-600 capitalize mb-2">{company.industry}</p>
                     {company.email && <p className="text-xs text-gray-500">{company.email}</p>}
@@ -990,6 +876,11 @@ export function AdminPanel() {
                       <Badge variant="outline" className="mt-2">
                         Assigned to User {company.assignedToUserId}
                       </Badge>
+                    )}
+                    {company.assignedToUserId && user?.role !== "admin" && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Only main admin can modify assigned companies
+                      </p>
                     )}
                   </CardContent>
                 </Card>
