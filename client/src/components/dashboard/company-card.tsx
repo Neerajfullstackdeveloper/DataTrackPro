@@ -27,8 +27,8 @@ export function CompanyCard({ company, onAddComment, statusColor }: CompanyCardP
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">{company.name}</h3>
-            <p className="text-sm text-gray-600 capitalize">{company.industry}</p>
+            <h3 className="text-lg font-semibold text-red-900 mb-1">{company.name}</h3>
+            <p className="text-sm text-red-600 capitalize">{company.industry}</p>
           </div>
           {getStatusBadge()}
         </div>
