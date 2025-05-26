@@ -55,10 +55,10 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    // Serve static files from the dist directory in production
-    app.use(express.static(path.join(__dirname, "../dist")));
+    // Serve static files from the dist/public directory in production
+    app.use(express.static(path.join(__dirname, "../dist/public")));
     app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "../dist/index.html"));
+      res.sendFile(path.join(__dirname, "../dist/public/index.html"));
     });
   }
 
