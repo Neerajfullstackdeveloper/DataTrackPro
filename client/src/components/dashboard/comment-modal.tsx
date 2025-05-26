@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,10 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
   const createCommentMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest("POST", "/api/comments", data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add comment');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -44,22 +48,43 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
         time: format(new Date(), "HH:mm"),
       });
     },
-    onError: () => {
-      toast({ title: "Failed to add comment", variant: "destructive" });
+    onError: (error: Error) => {
+      console.error('Comment submission error:', error);
+      toast({ 
+        title: "Failed to add comment", 
+        description: error.message,
+        variant: "destructive" 
+      });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const commentDate = new Date(`${formData.date}T${formData.time}`);
+    // Create date object and ensure it's in UTC
+    const commentDate = new Date(`${formData.date}T${formData.time}:00Z`);
     
-    createCommentMutation.mutate({
-      companyId: company.id,
+    // Validate the date before sending
+    if (isNaN(commentDate.getTime())) {
+      toast({
+        title: "Invalid date",
+        description: "Please select a valid date and time",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const commentData = {
+      companyId: Number(company.id),
       content: formData.content,
       category: formData.category,
       commentDate: commentDate.toISOString(),
-    });
+    };
+    
+    // Log the data being sent for debugging
+    console.log('Submitting comment with data:', commentData);
+    
+    createCommentMutation.mutate(commentData);
   };
 
   const handleChange = (field: string, value: string) => {
@@ -71,6 +96,9 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Add Comment</DialogTitle>
+          <DialogDescription>
+            Add a new comment for {company.name}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">

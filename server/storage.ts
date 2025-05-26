@@ -19,7 +19,7 @@ import {
   type InsertFacebookDataRequest
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, isNull } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -71,6 +71,7 @@ export interface IStorage {
   getPendingFacebookDataRequests(): Promise<FacebookDataRequest[]>;
   createFacebookDataRequest(request: InsertFacebookDataRequest & { userId: number }): Promise<FacebookDataRequest>;
   updateFacebookDataRequestStatus(id: number, status: string, approvedBy?: number): Promise<FacebookDataRequest | undefined>;
+  getFacebookDataRequestById(id: number): Promise<FacebookDataRequest | undefined>;
 
   sessionStore: session.SessionStore;
 }
@@ -102,11 +103,57 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
-    return user;
+    try {
+      console.log('Creating user in database:', {
+        ...insertUser,
+        password: '[REDACTED]'
+      });
+      
+      // Check for existing user with same username
+      const existingUsername = await this.getUserByUsername(insertUser.username);
+      if (existingUsername) {
+        throw new Error(`User with username '${insertUser.username}' already exists`);
+      }
+      
+      // Check for existing user with same email
+      const existingEmail = await this.getUserByEmail(insertUser.email);
+      if (existingEmail) {
+        throw new Error(`User with email '${insertUser.email}' already exists`);
+      }
+      
+      const [user] = await db
+        .insert(users)
+        .values(insertUser)
+        .returning();
+        
+      console.log('User created successfully:', {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      });
+      
+      return user;
+    } catch (error: any) {
+      console.error('Error creating user:', {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        constraint: error.constraint_name,
+        detail: error.detail,
+        stack: error.stack
+      });
+      
+      // Handle unique constraint violations
+      if (error.code === '23505') { // PostgreSQL unique violation code
+        const field = error.constraint_name?.includes('username') ? 'username' :
+                     error.constraint_name?.includes('email') ? 'email' :
+                     error.constraint_name?.includes('employee_id') ? 'employeeId' : 'unknown';
+        throw new Error(`User with this ${field} already exists`);
+      }
+      
+      throw error;
+    }
   }
 
   async updateUserLoginTime(id: number): Promise<void> {
@@ -248,7 +295,10 @@ export class DatabaseStorage implements IStorage {
   async createComment(comment: InsertComment & { userId: number }): Promise<Comment> {
     const [newComment] = await db
       .insert(comments)
-      .values(comment)
+      .values({
+        ...comment,
+        commentDate: new Date(comment.commentDate)
+      })
       .returning();
 
     // Update company status based on comment category
@@ -300,15 +350,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(dataRequests.id, id))
       .returning();
 
-    // If approved, assign companies to the user
-    if (status === "approved" && request) {
-      await this.assignCompaniesToUser(request.userId, 10);
-      await db
-        .update(dataRequests)
-        .set({ companiesAssigned: 10 })
-        .where(eq(dataRequests.id, id));
-    }
-
     return request || undefined;
   }
 
@@ -317,7 +358,7 @@ export class DatabaseStorage implements IStorage {
     const unassignedCompanies = await db
       .select()
       .from(companies)
-      .where(sql`${companies.assignedToUserId} IS NULL`)
+      .where(isNull(companies.assignedToUserId))
       .limit(count);
 
     if (unassignedCompanies.length === 0) {
@@ -328,7 +369,11 @@ export class DatabaseStorage implements IStorage {
     const companyIds = unassignedCompanies.map(c => c.id);
     await db
       .update(companies)
-      .set({ assignedToUserId: userId, updatedAt: new Date() })
+      .set({ 
+        assignedToUserId: userId, 
+        updatedAt: new Date(),
+        status: "active"
+      })
       .where(sql`${companies.id} IN (${companyIds.join(',')})`);
 
     return unassignedCompanies;
@@ -345,7 +390,10 @@ export class DatabaseStorage implements IStorage {
   async createHoliday(holiday: InsertHoliday): Promise<Holiday> {
     const [newHoliday] = await db
       .insert(holidays)
-      .values(holiday)
+      .values({
+        ...holiday,
+        date: holiday.date instanceof Date ? holiday.date : new Date(holiday.date)
+      })
       .returning();
     return newHoliday;
   }
@@ -399,6 +447,52 @@ export class DatabaseStorage implements IStorage {
       .where(eq(facebookDataRequests.id, id))
       .returning();
     return request || undefined;
+  }
+
+  async getFacebookDataRequestById(id: number): Promise<FacebookDataRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(facebookDataRequests)
+      .where(eq(facebookDataRequests.id, id));
+    return request || undefined;
+  }
+
+  async getDataRequestById(id: number): Promise<DataRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(dataRequests)
+      .where(eq(dataRequests.id, id));
+    return request || undefined;
+  }
+
+  async getUnassignedCompanies(limit: number) {
+    try {
+      const companies = await db.query.companies.findMany({
+        where: isNull(companies.assignedToUserId),
+        limit
+      });
+      return companies;
+    } catch (error) {
+      console.error('Error getting unassigned companies:', error);
+      throw error;
+    }
+  }
+
+  async updateCompany(id: number, data: Partial<typeof companies.$inferInsert>) {
+    try {
+      const [updatedCompany] = await db
+        .update(companies)
+        .set({
+          ...data,
+          updatedAt: new Date()
+        })
+        .where(eq(companies.id, id))
+        .returning();
+      return updatedCompany;
+    } catch (error) {
+      console.error('Error updating company:', error);
+      throw error;
+    }
   }
 }
 

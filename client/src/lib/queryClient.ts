@@ -2,8 +2,58 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    const errorText = await res.clone().text();
+    console.error('Error response:', errorText);
+    
+    try {
+      const errorData = JSON.parse(errorText);
+      
+      if (errorData) {
+        // Handle validation errors
+        if (errorData.errors) {
+          const errorMessage = errorData.errors
+            .map((err: any) => `${err.field}: ${err.message}`)
+            .join('\n');
+          throw new Error(errorMessage);
+        }
+        
+        // Handle unique constraint errors
+        if (errorData.field) {
+          throw new Error(`A user with this ${errorData.field} already exists`);
+        }
+        
+        // Handle database errors with details
+        if (errorData.error) {
+          const details = errorData.details ? `\nDetails: ${JSON.stringify(errorData.details, null, 2)}` : '';
+          throw new Error(`${errorData.error}${details}`);
+        }
+        
+        // Handle generic error message with details
+        if (errorData.message) {
+          const details = errorData.details ? `\nDetails: ${JSON.stringify(errorData.details, null, 2)}` : '';
+          throw new Error(`${errorData.message}${details}`);
+        }
+      }
+    } catch (e) {
+      // If JSON parsing fails, use the raw error text
+      console.error('Failed to parse error response:', e);
+      if (errorText) {
+        // Try to parse the error text as a simple message
+        try {
+          const simpleError = JSON.parse(errorText);
+          if (typeof simpleError === 'object' && simpleError.message) {
+            throw new Error(simpleError.message);
+          }
+        } catch {
+          // If parsing fails, use the raw error text
+          throw new Error(errorText);
+        }
+      }
+      throw new Error(res.statusText || `HTTP error! status: ${res.status}`);
+    }
+    
+    // If no specific error message found, use status text or generic message
+    throw new Error(res.statusText || `HTTP error! status: ${res.status}`);
   }
 }
 

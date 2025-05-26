@@ -38,7 +38,7 @@ export const comments = pgTable("comments", {
   userId: integer("user_id").notNull(),
   content: text("content").notNull(),
   category: text("category").notNull(), // followup, hot, block
-  commentDate: timestamp("comment_date").notNull(),
+  commentDate: timestamp("comment_date", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -70,6 +70,19 @@ export const facebookDataRequests = pgTable("facebook_data_requests", {
   justification: text("justification").notNull(),
   status: text("status").notNull().default("pending"), // pending, approved, rejected
   approvedBy: integer("approved_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const facebookData = pgTable("facebook_data", {
+  id: serial("id").primaryKey(),
+  companyName: text("company_name").notNull(),
+  address: text("address").notNull(),
+  email: text("email").notNull(),
+  contact: text("contact").notNull(),
+  products: text("products").array().notNull(),
+  services: text("services").array().notNull(),
+  quantity: integer("quantity").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -131,6 +144,38 @@ export const insertUserSchema = createInsertSchema(users).pick({
   fullName: true,
   employeeId: true,
   role: true,
+}).extend({
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(50, "Username must be less than 50 characters")
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores")
+    .trim()
+    .min(1, "Username is required"),
+  email: z.string()
+    .email("Invalid email address")
+    .min(1, "Email is required")
+    .max(100, "Email must be less than 100 characters")
+    .trim()
+    .toLowerCase()
+    .min(1, "Email is required"),
+  password: z.string()
+    .min(6, "Password must be at least 6 characters")
+    .max(100, "Password must be less than 100 characters")
+    .min(1, "Password is required"),
+  fullName: z.string()
+    .min(1, "Full name is required")
+    .max(100, "Full name must be less than 100 characters")
+    .trim()
+    .min(1, "Full name is required"),
+  employeeId: z.string()
+    .min(1, "Employee ID is required")
+    .max(20, "Employee ID must be less than 20 characters")
+    .regex(/^[A-Za-z0-9-]+$/, "Employee ID can only contain letters, numbers, and hyphens")
+    .trim()
+    .min(1, "Employee ID is required"),
+  role: z.enum(["employee", "tl", "manager", "admin"], {
+    errorMap: () => ({ message: "Role must be one of: employee, tl, manager, admin" })
+  }).default("employee")
 });
 
 export const insertCompanySchema = createInsertSchema(companies).pick({
@@ -149,6 +194,18 @@ export const insertCommentSchema = createInsertSchema(comments).pick({
   content: true,
   category: true,
   commentDate: true,
+}).extend({
+  companyId: z.number().int().positive(),
+  content: z.string().min(1, "Comment content is required"),
+  category: z.enum(["followup", "hot", "block"], {
+    errorMap: () => ({ message: "Category must be one of: followup, hot, block" })
+  }),
+  commentDate: z.union([z.string(), z.date()]).transform((val) => {
+    if (val instanceof Date) {
+      return val.toISOString();
+    }
+    return val;
+  })
 });
 
 export const insertDataRequestSchema = createInsertSchema(dataRequests).pick({
@@ -162,6 +219,18 @@ export const insertHolidaySchema = createInsertSchema(holidays).pick({
   date: true,
   description: true,
   duration: true,
+}).extend({
+  name: z.string().min(1, "Holiday name is required"),
+  date: z.union([z.string(), z.date()]).transform((val) => {
+    if (val instanceof Date) {
+      return val;
+    }
+    return new Date(val);
+  }),
+  description: z.string().optional(),
+  duration: z.enum(["full_day", "half_day", "extended"], {
+    errorMap: () => ({ message: "Duration must be one of: full_day, half_day, extended" })
+  })
 });
 
 export const insertFacebookDataRequestSchema = createInsertSchema(facebookDataRequests).pick({
@@ -181,3 +250,18 @@ export type Holiday = typeof holidays.$inferSelect;
 export type InsertHoliday = z.infer<typeof insertHolidaySchema>;
 export type FacebookDataRequest = typeof facebookDataRequests.$inferSelect;
 export type InsertFacebookDataRequest = z.infer<typeof insertFacebookDataRequestSchema>;
+
+// Add the Section type definition here
+export type Section = 
+  | "allData" 
+  | "todayData" 
+  | "facebookData" 
+  | "facebookRequest" 
+  | "followUp" 
+  | "hotData" 
+  | "blockData" 
+  | "newList" 
+  | "requestData" 
+  | "holidays" 
+  | "adminPanel"
+  | "assignedData";

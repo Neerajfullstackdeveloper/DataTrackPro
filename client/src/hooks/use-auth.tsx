@@ -29,6 +29,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery<SelectUser | undefined, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+    retry: false,
+    onError: (error) => {
+      console.error('Auth error:', error);
+      if (error.message !== '401') {
+        toast({
+          title: "Session expired",
+          description: "Please log in again",
+          variant: "destructive",
+        });
+      }
+      queryClient.setQueryData(["/api/user"], null);
+    }
   });
 
   const loginMutation = useMutation({
@@ -38,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      window.location.href = "/";
     },
     onError: (error: Error) => {
       toast({
@@ -55,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      window.location.href = "/";
     },
     onError: (error: Error) => {
       toast({
@@ -71,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
+      window.location.href = "/auth";
     },
     onError: (error: Error) => {
       toast({

@@ -11,9 +11,10 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { User, DataRequest, Company, Holiday } from "@shared/schema";
-import { Users, ClipboardList, BarChart, Loader2, Plus, Edit, Trash2, Building, CalendarDays } from "lucide-react";
+import { User, DataRequest, Company, Holiday, FacebookDataRequest } from "@shared/schema";
+import { Users, ClipboardList, BarChart, Loader2, Plus, Edit, Trash2, Building, CalendarDays, Facebook } from "lucide-react";
 import { format } from "date-fns";
+import { AdminCompanyForm } from "./admin-company-form";
 
 export function AdminPanel() {
   const { toast } = useToast();
@@ -52,50 +53,127 @@ export function AdminPanel() {
   // Queries
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
+    refetchInterval: 5000, // Refetch every 5 seconds
   });
 
   const { data: pendingRequests = [], isLoading: requestsLoading } = useQuery<DataRequest[]>({
     queryKey: ["/api/data-requests/pending"],
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
+  const { data: pendingFacebookRequests = [], isLoading: facebookRequestsLoading } = useQuery<FacebookDataRequest[]>({
+    queryKey: ["/api/facebook-requests/pending"],
+    refetchInterval: 5000, // Refetch every 5 seconds
   });
 
   const { data: allCompanies = [], isLoading: companiesLoading } = useQuery<Company[]>({
     queryKey: ["/api/companies"],
+    refetchInterval: 5000, // Refetch every 5 seconds
     enabled: activeTab === "companies",
   });
 
   const { data: holidays = [], isLoading: holidaysLoading } = useQuery<Holiday[]>({
     queryKey: ["/api/holidays"],
+    refetchInterval: 5000, // Refetch every 5 seconds
     enabled: activeTab === "holidays",
   });
 
   // Mutations
   const updateRequestStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      const response = await apiRequest("PUT", `/api/data-requests/${id}/status`, { status });
+    mutationFn: async ({ id, status, type }: { id: number; status: string; type: 'data' | 'facebook' }) => {
+      const endpoint = type === 'data' ? `/api/data-requests/${id}/status` : `/api/facebook-requests/${id}/status`;
+      const response = await apiRequest("PUT", endpoint, { status });
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/data-requests"] });
-      toast({ title: "Request status updated successfully" });
+    onMutate: async ({ id, status, type }) => {
+      const queryKey = type === 'data' ? ["/api/data-requests/pending"] : ["/api/facebook-requests/pending"];
+      
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey });
+      
+      // Snapshot the previous value
+      const previousRequests = queryClient.getQueryData(queryKey);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData(queryKey, (old: any[] = []) => 
+        old.filter(request => request.id !== id)
+      );
+      
+      return { previousRequests, type };
     },
-    onError: () => {
-      toast({ title: "Failed to update request status", variant: "destructive" });
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousRequests) {
+        const queryKey = context.type === 'data' ? ["/api/data-requests/pending"] : ["/api/facebook-requests/pending"];
+        queryClient.setQueryData(queryKey, context.previousRequests);
+      }
+      toast({ 
+        title: "Failed to update request status", 
+        variant: "destructive",
+        description: "Please try again later."
+      });
+    },
+    onSuccess: (_, variables) => {
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ["/api/data-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/data-requests/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/facebook-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/facebook-requests/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/followup"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/hot"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/block"] });
+      toast({ 
+        title: "Request status updated successfully",
+        description: variables.type === 'data' ? "Companies have been assigned to the user." : "Facebook data access has been updated."
+      });
     },
   });
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: any) => {
+      console.log('Sending user creation request:', {
+        ...userData,
+        password: '[REDACTED]'
+      });
+      
       const response = await apiRequest("POST", "/api/admin/users", userData);
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (newUser) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/admin/users"] });
+      
+      // Snapshot the previous value
+      const previousUsers = queryClient.getQueryData<User[]>(["/api/admin/users"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<User[]>(["/api/admin/users"], (old = []) => [...old, { ...newUser, id: Date.now() }]);
+      
+      return { previousUsers };
+    },
+    onError: (err, newUser, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousUsers) {
+        queryClient.setQueryData(["/api/admin/users"], context.previousUsers);
+      }
+      toast({ 
+        title: "Error", 
+        description: "Failed to create user",
+        variant: "destructive" 
+      });
+    },
+    onSuccess: (newUser) => {
+      queryClient.setQueryData<User[]>(["/api/admin/users"], (oldUsers = []) => [...oldUsers, newUser]);
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({ title: "User created successfully" });
+      toast({ 
+        title: "Success", 
+        description: "User created successfully",
+        variant: "default"
+      });
       setIsCreateUserOpen(false);
       setNewUserData({ username: "", email: "", password: "", fullName: "", employeeId: "", role: "employee" });
-    },
-    onError: () => {
-      toast({ title: "Failed to create user", variant: "destructive" });
     },
   });
 
@@ -104,12 +182,33 @@ export function AdminPanel() {
       const response = await apiRequest("DELETE", `/api/admin/users/${userId}`);
       return response;
     },
-    onSuccess: () => {
+    onMutate: async (userId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/admin/users"] });
+      
+      // Snapshot the previous value
+      const previousUsers = queryClient.getQueryData<User[]>(["/api/admin/users"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<User[]>(["/api/admin/users"], (old = []) => 
+        old.filter(user => user.id !== userId)
+      );
+      
+      return { previousUsers };
+    },
+    onError: (err, userId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousUsers) {
+        queryClient.setQueryData(["/api/admin/users"], context.previousUsers);
+      }
+      toast({ title: "Failed to delete user", variant: "destructive" });
+    },
+    onSuccess: (_, userId) => {
+      queryClient.setQueryData<User[]>(["/api/admin/users"], (oldUsers = []) => 
+        oldUsers.filter(user => user.id !== userId)
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       toast({ title: "User deleted successfully" });
-    },
-    onError: () => {
-      toast({ title: "Failed to delete user", variant: "destructive" });
     },
   });
 
@@ -118,14 +217,43 @@ export function AdminPanel() {
       const response = await apiRequest("POST", "/api/admin/companies", companyData);
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (newCompany) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/companies"] });
+      await queryClient.cancelQueries({ queryKey: ["/api/companies/today"] });
+      
+      // Snapshot the previous value
+      const previousCompanies = queryClient.getQueryData<Company[]>(["/api/companies"]);
+      const previousTodayCompanies = queryClient.getQueryData<Company[]>(["/api/companies/today"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<Company[]>(["/api/companies"], (old = []) => [...old, { ...newCompany, id: Date.now() }]);
+      queryClient.setQueryData<Company[]>(["/api/companies/today"], (old = []) => [...old, { ...newCompany, id: Date.now() }]);
+      
+      return { previousCompanies, previousTodayCompanies };
+    },
+    onError: (err, newCompany, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousCompanies) {
+        queryClient.setQueryData(["/api/companies"], context.previousCompanies);
+      }
+      if (context?.previousTodayCompanies) {
+        queryClient.setQueryData(["/api/companies/today"], context.previousTodayCompanies);
+      }
+      toast({ title: "Failed to create company", variant: "destructive" });
+    },
+    onSuccess: (newCompany) => {
+      queryClient.setQueryData<Company[]>(["/api/companies"], (oldCompanies = []) => [...oldCompanies, newCompany]);
+      queryClient.setQueryData<Company[]>(["/api/companies/today"], (oldCompanies = []) => [...oldCompanies, newCompany]);
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/followup"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/hot"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/block"] });
       toast({ title: "Company created successfully" });
       setIsCreateCompanyOpen(false);
       setNewCompanyData({ name: "", industry: "", email: "", phone: "", address: "", website: "", companySize: "", notes: "", assignedToUserId: "" });
-    },
-    onError: () => {
-      toast({ title: "Failed to create company", variant: "destructive" });
     },
   });
 
@@ -134,12 +262,37 @@ export function AdminPanel() {
       const response = await apiRequest("DELETE", `/api/admin/companies/${companyId}`);
       return response;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
-      toast({ title: "Company deleted successfully" });
+    onMutate: async (companyId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/companies"] });
+      
+      // Snapshot the previous value
+      const previousCompanies = queryClient.getQueryData<Company[]>(["/api/companies"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<Company[]>(["/api/companies"], (old = []) => 
+        old.filter(company => company.id !== companyId)
+      );
+      
+      return { previousCompanies };
     },
-    onError: () => {
+    onError: (err, companyId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousCompanies) {
+        queryClient.setQueryData(["/api/companies"], context.previousCompanies);
+      }
       toast({ title: "Failed to delete company", variant: "destructive" });
+    },
+    onSuccess: (_, companyId) => {
+      queryClient.setQueryData<Company[]>(["/api/companies"], (oldCompanies = []) => 
+        oldCompanies.filter(company => company.id !== companyId)
+      );
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/followup"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/hot"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/block"] });
+      toast({ title: "Company deleted successfully" });
     },
   });
 
@@ -148,14 +301,31 @@ export function AdminPanel() {
       const response = await apiRequest("POST", "/api/holidays", holidayData);
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (newHoliday) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/holidays"] });
+      
+      // Snapshot the previous value
+      const previousHolidays = queryClient.getQueryData<Holiday[]>(["/api/holidays"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<Holiday[]>(["/api/holidays"], (old = []) => [...old, { ...newHoliday, id: Date.now() }]);
+      
+      return { previousHolidays };
+    },
+    onError: (err, newHoliday, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousHolidays) {
+        queryClient.setQueryData(["/api/holidays"], context.previousHolidays);
+      }
+      toast({ title: "Failed to create holiday", variant: "destructive" });
+    },
+    onSuccess: (newHoliday) => {
+      queryClient.setQueryData<Holiday[]>(["/api/holidays"], (oldHolidays = []) => [...oldHolidays, newHoliday]);
       queryClient.invalidateQueries({ queryKey: ["/api/holidays"] });
       toast({ title: "Holiday created successfully" });
       setIsCreateHolidayOpen(false);
       setNewHolidayData({ name: "", date: "", description: "", duration: "full_day" });
-    },
-    onError: () => {
-      toast({ title: "Failed to create holiday", variant: "destructive" });
     },
   });
 
@@ -164,17 +334,38 @@ export function AdminPanel() {
       const response = await apiRequest("DELETE", `/api/holidays/${holidayId}`);
       return response;
     },
-    onSuccess: () => {
+    onMutate: async (holidayId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/holidays"] });
+      
+      // Snapshot the previous value
+      const previousHolidays = queryClient.getQueryData<Holiday[]>(["/api/holidays"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<Holiday[]>(["/api/holidays"], (old = []) => 
+        old.filter(holiday => holiday.id !== holidayId)
+      );
+      
+      return { previousHolidays };
+    },
+    onError: (err, holidayId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousHolidays) {
+        queryClient.setQueryData(["/api/holidays"], context.previousHolidays);
+      }
+      toast({ title: "Failed to delete holiday", variant: "destructive" });
+    },
+    onSuccess: (_, holidayId) => {
+      queryClient.setQueryData<Holiday[]>(["/api/holidays"], (oldHolidays = []) => 
+        oldHolidays.filter(holiday => holiday.id !== holidayId)
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/holidays"] });
       toast({ title: "Holiday deleted successfully" });
     },
-    onError: () => {
-      toast({ title: "Failed to delete holiday", variant: "destructive" });
-    },
   });
 
-  const handleRequestAction = (id: number, status: string) => {
-    updateRequestStatusMutation.mutate({ id, status });
+  const handleRequestAction = (id: number, status: string, type: 'data' | 'facebook') => {
+    updateRequestStatusMutation.mutate({ id, status, type });
   };
 
   const handleCreateUser = (e: React.FormEvent) => {
@@ -193,18 +384,61 @@ export function AdminPanel() {
 
   const handleCreateHoliday = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Ensure the date is properly formatted
+    const date = new Date(newHolidayData.date);
+    if (isNaN(date.getTime())) {
+      toast({
+        title: "Invalid date",
+        description: "Please select a valid date",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Set the time to midnight UTC
+    date.setUTCHours(0, 0, 0, 0);
+
     const holidayData = {
-      ...newHolidayData,
-      date: new Date(newHolidayData.date).toISOString()
+      name: newHolidayData.name.trim(),
+      date: date.toISOString(),
+      description: newHolidayData.description.trim(),
+      duration: newHolidayData.duration
     };
+    
+    console.log('Submitting holiday data:', holidayData);
     createHolidayMutation.mutate(holidayData);
   };
 
   const renderOverview = () => (
     <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Administration Panel</h2>
-        <p className="text-gray-600">System management and user administration</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Dashboard</h2>
+        <p className="text-gray-600">Manage users, companies, and data requests</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AdminCompanyForm />
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={() => setActiveTab("requests")} 
+              className="w-full"
+            >
+              View Pending Requests
+            </Button>
+            <Button 
+              onClick={() => setIsCreateUserOpen(true)} 
+              className="w-full"
+            >
+              Add New User
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Admin Controls Grid */}
@@ -261,7 +495,7 @@ export function AdminPanel() {
             <p className="text-gray-600 mb-4">Review and approve employee data requests</p>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">
-                Pending: <strong>{pendingRequests.length}</strong>
+                Pending: <strong>{pendingRequests.length + pendingFacebookRequests.length}</strong>
               </span>
               <Button 
                 variant="outline"
@@ -504,11 +738,11 @@ export function AdminPanel() {
           </div>
         </CardHeader>
         <CardContent>
-          {requestsLoading ? (
+          {(requestsLoading || facebookRequestsLoading) ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
-          ) : pendingRequests.length > 0 ? (
+          ) : (pendingRequests.length > 0 || pendingFacebookRequests.length > 0) ? (
             <div className="space-y-4">
               {pendingRequests.map((request) => (
                 <div key={request.id} className="border border-gray-200 rounded-lg p-4">
@@ -528,7 +762,7 @@ export function AdminPanel() {
                   <div className="flex space-x-3">
                     <Button
                       size="sm"
-                      onClick={() => handleRequestAction(request.id, "approved")}
+                      onClick={() => handleRequestAction(request.id, "approved", 'data')}
                       disabled={updateRequestStatusMutation.isPending}
                     >
                       {updateRequestStatusMutation.isPending ? (
@@ -540,7 +774,46 @@ export function AdminPanel() {
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => handleRequestAction(request.id, "rejected")}
+                      onClick={() => handleRequestAction(request.id, "rejected", 'data')}
+                      disabled={updateRequestStatusMutation.isPending}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              {pendingFacebookRequests.map((request) => (
+                <div key={request.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-medium text-gray-900">User ID: {request.userId}</h4>
+                      <p className="text-sm text-gray-600 flex items-center">
+                        <Facebook className="h-4 w-4 mr-2" />
+                        Facebook Data Request
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {format(new Date(request.createdAt), "MMM dd, yyyy")}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">{request.justification}</p>
+                  <div className="flex space-x-3">
+                    <Button
+                      size="sm"
+                      onClick={() => handleRequestAction(request.id, "approved", 'facebook')}
+                      disabled={updateRequestStatusMutation.isPending}
+                    >
+                      {updateRequestStatusMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Approve"
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleRequestAction(request.id, "rejected", 'facebook')}
                       disabled={updateRequestStatusMutation.isPending}
                     >
                       Reject
@@ -759,6 +1032,7 @@ export function AdminPanel() {
                         value={newHolidayData.name}
                         onChange={(e) => setNewHolidayData({...newHolidayData, name: e.target.value})}
                         required
+                        minLength={1}
                       />
                     </div>
                     <div>
