@@ -466,33 +466,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUnassignedCompanies(limit: number) {
-    try {
-      const companies = await db.query.companies.findMany({
-        where: isNull(companies.assignedToUserId),
-        limit
-      });
-      return companies;
-    } catch (error) {
-      console.error('Error getting unassigned companies:', error);
-      throw error;
-    }
-  }
-
-  async updateCompany(id: number, data: Partial<typeof companies.$inferInsert>) {
-    try {
-      const [updatedCompany] = await db
-        .update(companies)
-        .set({
-          ...data,
-          updatedAt: new Date()
-        })
-        .where(eq(companies.id, id))
-        .returning();
-      return updatedCompany;
-    } catch (error) {
-      console.error('Error updating company:', error);
-      throw error;
-    }
+    return await db
+      .select()
+      .from(companies)
+      .where(isNull(companies.assignedToUserId))
+      .limit(limit);
   }
 }
 
