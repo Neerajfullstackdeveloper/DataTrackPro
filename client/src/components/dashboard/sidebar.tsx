@@ -61,12 +61,12 @@ export function Sidebar({
       icon: Database,
       color: "text-blue-600",
     },
-    {
-      id: "todayData" as Section,
-      label: "Today's Data",
-      icon: Calendar,
-      color: "text-gray-600",
-    },
+    // {
+    //   id: "todayData" as Section,
+    //   label: "Today's Data",
+    //   icon: Calendar,
+    //   color: "text-gray-600",
+    // },
     {
       id: "facebookData" as Section,
       label: "Facebook Data",
