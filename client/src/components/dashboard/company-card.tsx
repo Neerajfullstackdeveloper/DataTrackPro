@@ -20,7 +20,7 @@ export function CompanyCard({ company, onAddComment, statusColor }: CompanyCardP
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-md transition-shadow border border-solid border-black">
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
