@@ -819,8 +819,8 @@ export default function Dashboard() {
                         )}
                         {company.comment && (
                           <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.comment}</p>
+                            <p className="font-medium mb-1">Comments:</p>
+                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company. comments}</p>
                           </div>
                         )}
 
