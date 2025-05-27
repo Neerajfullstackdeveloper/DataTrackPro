@@ -642,8 +642,8 @@ export default function Dashboard() {
         return (
           <div>
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Follow-Up Companies</h2>
-              <p className="text-gray-600">View companies that need follow-up</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">General Companies</h2>
+              <p className="text-gray-600">View companies general companies</p>
             </div>
             {isLoadingGeneral ? (
               <div className="flex items-center justify-center py-12">
@@ -651,7 +651,7 @@ export default function Dashboard() {
               </div>
             ) : general.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {followUpCompanies.map((company) => (
+                {general.map((company) => (
                   <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
                     <CardContent className="p-4">
                       <div className="space-y-3">
