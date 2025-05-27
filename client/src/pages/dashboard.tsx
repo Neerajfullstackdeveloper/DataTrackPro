@@ -811,12 +811,12 @@ export default function Dashboard() {
                           </div>
                         )}
 
-                        {company.notes && (
+                        {/* {company.notes && (
                           <div className="mt-2 text-sm text-gray-600">
                             <p className="font-medium mb-1">Notes:</p>
                             <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
                           </div>
-                        )}
+                        )} */}
                         {company.comment && (
                           <div className="mt-2 text-sm text-gray-600">
                             <p className="font-medium mb-1">Comments:</p>
