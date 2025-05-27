@@ -824,7 +824,7 @@ export default function Dashboard() {
                             <span>{company.address}</span>
                           </div>
                         )}
-                        {companyComments.length > 0 && (
+                        {myComment.length > 0 && (
                       <div className="mt-2 text-sm text-gray-600">
                         <p className="font-medium mb-1">Comments:</p>
                         <div className="space-y-2 max-h-40 overflow-y-auto">
