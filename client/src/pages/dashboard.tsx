@@ -334,6 +334,9 @@ export default function Dashboard() {
       case "todayData":
         prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/companies/today"] }));
         break;
+      case "general":
+        prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/companies/category/general"] }));
+        break;
       case "followUp":
         prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/companies/category/followup"] }));
         break;
