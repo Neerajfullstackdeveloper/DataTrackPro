@@ -85,6 +85,13 @@
   border-color: hsl(var(--success));
 }
 
-.mncrd{
+.mncrd {
   border: 1px solid black;
+}
+
+.gridincrad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 equal columns */
+  gap: 16px; /* spacing between columns */
+  padding: 16px;
 }
