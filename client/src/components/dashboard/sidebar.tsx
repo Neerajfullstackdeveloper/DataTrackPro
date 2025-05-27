@@ -26,6 +26,7 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   user: UserType | null;
+  general:string;
   followUpCount: number;
   hotDataCount: number;
   blockDataCount: number;
@@ -38,6 +39,7 @@ export function Sidebar({
   isOpen, 
   onClose, 
   user,
+  general,
   followUpCount,
   hotDataCount,
   blockDataCount,
@@ -61,6 +63,12 @@ export function Sidebar({
       label: "Assigned Data",
       icon: Database,
       color: "text-blue-600",
+    },
+    {
+      id: "general" as Section,
+      label: "General Data",
+      icon: Database,
+      color: "text-grey-600",
     },
     // {
     //   id: "todayData" as Section,

@@ -197,8 +197,8 @@ export const insertCommentSchema = createInsertSchema(comments).pick({
 }).extend({
   companyId: z.number().int().positive(),
   content: z.string().min(1, "Comment content is required"),
-  category: z.enum(["followup", "hot", "block"], {
-    errorMap: () => ({ message: "Category must be one of: followup, hot, block" })
+  category: z.enum(["followup", "hot", "block","general"], {
+    errorMap: () => ({ message: "Category must be one of: followup, hot, block,general" })
   }),
   commentDate: z.union([z.string(), z.date()]).transform((val) => {
     if (val instanceof Date) {
