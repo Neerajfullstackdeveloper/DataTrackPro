@@ -58,6 +58,11 @@ export default function Dashboard() {
     refetchInterval: 5000, // Refetch every 5 seconds
   });
 
+  const { data: general = [], isLoading: isLoadingGeneral } = useQuery<Company[]>({
+    queryKey: ["/api/companies/category/general"],
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
   const { data: followUpCompanies = [], isLoading: isLoadingFollowUp } = useQuery<Company[]>({
     queryKey: ["/api/companies/category/followup"],
     refetchInterval: 5000, // Refetch every 5 seconds
@@ -623,6 +628,121 @@ export default function Dashboard() {
             <FacebookRequestForm />
           </div>
         );
+        case "general":
+        return (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Follow-Up Companies</h2>
+              <p className="text-gray-600">View companies that need follow-up</p>
+            </div>
+            {isLoadingGeneral ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : general.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {followUpCompanies.map((company) => (
+                  <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-medium text-gray-900">{company.name}</h4>
+                            <p className="text-sm text-gray-500">ID: {company.id}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant="outline" className="capitalize">
+                              {company.industry}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              Needs Follow-up
+                            </Badge>
+                            {company.assignedToUserId && (
+                              <Badge variant="secondary" className="text-xs">
+                                Assigned
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {company.companySize && (
+                            <div className="flex items-center text-gray-600">
+                              <Users className="h-4 w-4 mr-2" />
+                              {company.companySize}
+                            </div>
+                          )}
+                          {company.email && (
+                            <div className="flex items-center text-gray-600">
+                              <Mail className="h-4 w-4 mr-2" />
+                              {company.email}
+                            </div>
+                          )}
+                          {company.phone && (
+                            <div className="flex items-center text-gray-600">
+                              <Phone className="h-4 w-4 mr-2" />
+                              {company.phone}
+                            </div>
+                          )}
+                          {company.website && (
+                            <div className="flex items-center text-gray-600">
+                              <Globe className="h-4 w-4 mr-2" />
+                              {company.website}
+                            </div>
+                          )}
+                        </div>
+
+                        {company.address && (
+                          <div className="flex items-start text-sm text-gray-600">
+                            <MapPin className="h-4 w-4 mr-2 mt-0.5" />
+                            <span>{company.address}</span>
+                          </div>
+                        )}
+
+                        {company.notes && (
+                          <div className="mt-2 text-sm text-gray-600">
+                            <p className="font-medium mb-1">Notes:</p>
+                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                          <div className="flex items-center">
+                            <Calendar className="h-3 w-3 mr-1" />
+                            {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full"
+                            onClick={() => setSelectedCompany(company)}
+                          >
+                            Add Comment
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Clock className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Genral Comment Required</h3>
+                  <p className="text-gray-600">There are no companies that need Genral Comment at the moment.</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
       case "followUp":
         return (
           <div>
@@ -1130,230 +1250,6 @@ export default function Dashboard() {
           <div className="text-center py-12">
             <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
             <p className="text-gray-600">You don't have permission to access the admin panel.</p>
-          </div>
-        );
-      case "assignedData":
-        return user?.role === "employee" ? (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Assigned Companies</h2>
-              <p className="text-gray-600">View companies assigned to you</p>
-            </div>
-            {isLoadingMyCompanies ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : myCompanies.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {myCompanies.map((company) => (
-                  <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium text-gray-900">{company.name}</h4>
-                            <p className="text-sm text-gray-500">ID: {company.id}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant="outline" className="capitalize">
-                              {company.industry}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          {company.companySize && (
-                            <div className="flex items-center text-gray-600">
-                              <Users className="h-4 w-4 mr-2" />
-                              {company.companySize}
-                            </div>
-                          )}
-                          {company.email && (
-                            <div className="flex items-center text-gray-600">
-                              <Mail className="h-4 w-4 mr-2" />
-                              {company.email}
-                            </div>
-                          )}
-                          {company.phone && (
-                            <div className="flex items-center text-gray-600">
-                              <Phone className="h-4 w-4 mr-2" />
-                              {company.phone}
-                            </div>
-                          )}
-                          {company.website && (
-                            <div className="flex items-center text-gray-600">
-                              <Globe className="h-4 w-4 mr-2" />
-                              {company.website}
-                            </div>
-                          )}
-                        </div>
-
-                        {company.address && (
-                          <div className="flex items-start text-sm text-gray-600">
-                            <MapPin className="h-4 w-4 mr-2 mt-0.5" />
-                            <span>{company.address}</span>
-                          </div>
-                        )}
-
-                        {company.notes && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                          <div className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                          <div className="flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-gray-100">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => setSelectedCompany(company)}
-                          >
-                            Add Comment
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <Database className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Companies Assigned</h3>
-                  <p className="text-gray-600">You have not been assigned any companies yet.</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
-            <p className="text-gray-600">You don't have permission to view assigned data.</p>
-          </div>
-        );
-        case "general":
-        return user?.role === "general" ? (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">General Companies</h2>
-              <p className="text-gray-600">View companies that need to call Again</p>
-            </div>
-            {isLoadingMyCompanies ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : myCompanies.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {myCompanies.map((company) => (
-                  <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium text-gray-900">{company.name}</h4>
-                            <p className="text-sm text-gray-500">ID: {company.id}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant="outline" className="capitalize">
-                              {company.industry}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          {company.companySize && (
-                            <div className="flex items-center text-gray-600">
-                              <Users className="h-4 w-4 mr-2" />
-                              {company.companySize}
-                            </div>
-                          )}
-                          {company.email && (
-                            <div className="flex items-center text-gray-600">
-                              <Mail className="h-4 w-4 mr-2" />
-                              {company.email}
-                            </div>
-                          )}
-                          {company.phone && (
-                            <div className="flex items-center text-gray-600">
-                              <Phone className="h-4 w-4 mr-2" />
-                              {company.phone}
-                            </div>
-                          )}
-                          {company.website && (
-                            <div className="flex items-center text-gray-600">
-                              <Globe className="h-4 w-4 mr-2" />
-                              {company.website}
-                            </div>
-                          )}
-                        </div>
-
-                        {company.address && (
-                          <div className="flex items-start text-sm text-gray-600">
-                            <MapPin className="h-4 w-4 mr-2 mt-0.5" />
-                            <span>{company.address}</span>
-                          </div>
-                        )}
-
-                        {company.notes && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                          <div className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                          <div className="flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-gray-100">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => setSelectedCompany(company)}
-                          >
-                            Add Comment
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <Database className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Companies Assigned</h3>
-                  <p className="text-gray-600">You have not been assigned any companies yet.</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
-            <p className="text-gray-600">You don't have permission to view assigned data.</p>
           </div>
         );
       default:
