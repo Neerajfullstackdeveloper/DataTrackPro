@@ -38,6 +38,11 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
 
   // Queries
+  const { data: myComment = [], isLoading: isLoadingMyComment } = useQuery<Comment[]>({
+    queryKey: ["/api/comment/my"],
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
   const { data: myCompanies = [], isLoading: isLoadingMyCompanies } = useQuery<Company[]>({
     queryKey: ["/api/companies/my"],
     refetchInterval: 5000, // Refetch every 5 seconds
@@ -133,6 +138,7 @@ export default function Dashboard() {
     onMutate: async ({ id, data }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["/api/companies"] });
+      await queryClient.cancelQueries({ queryKey: ["/api/comment/my"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/my"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/today"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/category/general"] });
@@ -142,6 +148,7 @@ export default function Dashboard() {
       
       // Snapshot the previous values
       const previousCompanies = queryClient.getQueryData<Company[]>(["/api/companies"]);
+      const previousMyComment = queryClient.getQueryData<Company[]>(["/api/comment/my"]);
       const previousMyCompanies = queryClient.getQueryData<Company[]>(["/api/companies/my"]);
       const previousTodayCompanies = queryClient.getQueryData<Company[]>(["/api/companies/today"]);
       const previousGeneralCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/general"]);
@@ -154,6 +161,7 @@ export default function Dashboard() {
         list.map(company => company.id === id ? { ...company, ...data } : company);
       
       queryClient.setQueryData(["/api/companies"], updateCompanyInList);
+      queryClient.setQueryData(["/api/comment/my"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/my"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/today"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/general"], updateCompanyInList);
@@ -164,6 +172,7 @@ export default function Dashboard() {
       return { 
         previousCompanies,
         previousMyCompanies,
+        previousMyComment,
         previousTodayCompanies,
         previousGeneralCompanies,
         previousFollowupCompanies,
@@ -175,6 +184,7 @@ export default function Dashboard() {
       // Roll back all company lists if the mutation fails
       if (context) {
         queryClient.setQueryData(["/api/companies"], context.previousCompanies);
+        queryClient.setQueryData(["/api/comment/my"], context.previousMyCompanies);
         queryClient.setQueryData(["/api/companies/my"], context.previousMyCompanies);
         queryClient.setQueryData(["/api/companies/today"], context.previousTodayCompanies);
         queryClient.setQueryData(["/api/companies/category/general"], context.previousGeneralCompanies);
@@ -351,6 +361,10 @@ export default function Dashboard() {
       case "assignedData":
         if (user?.role === "employee") {
           prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/companies/my"] }));
+        }
+      case "assignedData":
+        if (user?.role === "employee") {
+          prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/comment/my"] }));
         }
         break;
     }
@@ -810,15 +824,29 @@ export default function Dashboard() {
                             <span>{company.address}</span>
                           </div>
                         )}
-
-                        {company.notes && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
-                          </div>
-                        )}
-                        
-
+                        {companyComments.length > 0 && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        <p className="font-medium mb-1">Comments:</p>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {companyComments.map((comment) => (
+                            <div 
+                              key={comment.id} 
+                              className="bg-gray-50 p-2 rounded whitespace-pre-line"
+                            >
+                              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                <span>
+                                  {comment.createdAt ? format(new Date(comment.createdAt), 'MMM d, yyyy') : 'N/A'}
+                                </span>
+                                <span>
+                                  {comment.author || 'Anonymous'}
+                                </span>
+                              </div>
+                              <p>{comment.text}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                         <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
                           <div className="flex items-center">
                             <Calendar className="h-3 w-3 mr-1" />
