@@ -26,7 +26,6 @@ export const companies = pgTable("companies", {
   website: text("website"),
   companySize: text("company_size"),
   notes: text("notes"),
-  comments:text("comments"),
   status: text("status").notNull().default("active"), // active, inactive
   assignedToUserId: integer("assigned_to_user_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
