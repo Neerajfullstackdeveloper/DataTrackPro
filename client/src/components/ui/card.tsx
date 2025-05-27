@@ -1,5 +1,4 @@
 import * as React from "react"
-import {class} from "index.css"
 
 import { cn } from "@/lib/utils"
 
