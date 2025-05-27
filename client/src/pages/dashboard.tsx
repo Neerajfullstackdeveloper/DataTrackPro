@@ -811,10 +811,10 @@ export default function Dashboard() {
                           </div>
                         )}
 
-                        {company.notes && (
+                        {comments.content && (
                           <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
+                            <p className="font-medium mb-1">content</p>
+                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{comments.content}</p>
                           </div>
                         )}
                         
