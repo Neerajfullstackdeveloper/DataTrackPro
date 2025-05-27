@@ -177,6 +177,7 @@ export default function Dashboard() {
         queryClient.setQueryData(["/api/companies"], context.previousCompanies);
         queryClient.setQueryData(["/api/companies/my"], context.previousMyCompanies);
         queryClient.setQueryData(["/api/companies/today"], context.previousTodayCompanies);
+        queryClient.setQueryData(["/api/companies/category/general"], context.previousGeneralCompanies);
         queryClient.setQueryData(["/api/companies/category/followup"], context.previousFollowupCompanies);
         queryClient.setQueryData(["/api/companies/category/hot"], context.previousHotCompanies);
         queryClient.setQueryData(["/api/companies/category/block"], context.previousBlockCompanies);
@@ -195,6 +196,7 @@ export default function Dashboard() {
       queryClient.setQueryData(["/api/companies"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/my"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/today"], updateCompanyInList);
+      queryClient.setQueryData(["/api/companies/category/general"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/followup"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/hot"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/block"], updateCompanyInList);
@@ -405,7 +407,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
                   {allCompanies.slice(0, displayCount).map((company) => (
                     <Card key={company.id} className="group hover:shadow-lg transition-all duration-200 ease-in-out border border-gray-200">
                       <CardContent className="p-4 md:p-6">
@@ -415,16 +417,7 @@ export default function Dashboard() {
                               <h4 className="font-medium text-gray-900 truncate group-hover:text-primary transition-colors">{company.name}</h4>
                               <p className="text-sm text-gray-500">ID: {company.id}</p>
                             </div>
-                            <div className="flex flex-col items-end gap-1 ml-4">
-                              <Badge variant="outline" className="capitalize whitespace-nowrap bg-gray-50">
-                                {company.industry}
-                              </Badge>
-                              {company.assignedToUserId && (
-                                <Badge variant="secondary" className="text-xs whitespace-nowrap">
-                                  Assigned
-                                </Badge>
-                              )}
-                            </div>
+                            
                           </div>
 
                           <div className="space-y-2">
