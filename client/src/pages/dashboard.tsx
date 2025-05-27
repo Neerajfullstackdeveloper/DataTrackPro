@@ -1127,31 +1127,6 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleDataRequestSubmit} className="space-y-4">
-                      <div>
-                        <Label htmlFor="requestType">Request Type</Label>
-                        <Select name="requestType" required>
-                          <SelectTrigger><SelectValue placeholder="Select request type" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="general">General Company Data</SelectItem>
-                            <SelectItem value="industry">Industry Specific</SelectItem>
-                            <SelectItem value="geographic">Geographic Region</SelectItem>
-                            <SelectItem value="size">Company Size Range</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="industry">Industry (Optional)</Label>
-                        <Select name="industry">
-                          <SelectTrigger><SelectValue placeholder="All Industries" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Industries</SelectItem>
-                            <SelectItem value="technology">Technology</SelectItem>
-                            <SelectItem value="healthcare">Healthcare</SelectItem>
-                            <SelectItem value="finance">Finance</SelectItem>
-                            <SelectItem value="retail">Retail</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
                       <div className="md:col-span-2">
                         <Label htmlFor="justification">Justification</Label>
                         <textarea
