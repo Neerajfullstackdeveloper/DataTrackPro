@@ -144,7 +144,7 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="followup">General Message</SelectItem>
+                <SelectItem value="general">General Message</SelectItem>
                 <SelectItem value="followup">Follow-Up Data</SelectItem>
                 <SelectItem value="hot">Hot Data</SelectItem>
                 <SelectItem value="block">Block Data</SelectItem>

@@ -257,6 +257,7 @@ export type Section =
   | "todayData" 
   | "facebookData" 
   | "facebookRequest" 
+  | "general" 
   | "followUp" 
   | "hotData" 
   | "blockData" 
