@@ -135,6 +135,7 @@ export default function Dashboard() {
       await queryClient.cancelQueries({ queryKey: ["/api/companies"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/my"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/today"] });
+      await queryClient.cancelQueries({ queryKey: ["/api/companies/category/general"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/category/followup"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/category/hot"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/category/block"] });
@@ -143,7 +144,8 @@ export default function Dashboard() {
       const previousCompanies = queryClient.getQueryData<Company[]>(["/api/companies"]);
       const previousMyCompanies = queryClient.getQueryData<Company[]>(["/api/companies/my"]);
       const previousTodayCompanies = queryClient.getQueryData<Company[]>(["/api/companies/today"]);
-      const previousFollowupCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/followup"]);
+      const previousGeneralCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/general"]);
+      const previousFollowupCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/followup"]);1
       const previousHotCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/hot"]);
       const previousBlockCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/block"]);
       
@@ -154,6 +156,7 @@ export default function Dashboard() {
       queryClient.setQueryData(["/api/companies"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/my"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/today"], updateCompanyInList);
+      queryClient.setQueryData(["/api/companies/category/general"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/followup"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/hot"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/block"], updateCompanyInList);
@@ -162,6 +165,7 @@ export default function Dashboard() {
         previousCompanies,
         previousMyCompanies,
         previousTodayCompanies,
+        previousGeneralCompanies,
         previousFollowupCompanies,
         previousHotCompanies,
         previousBlockCompanies
@@ -173,6 +177,7 @@ export default function Dashboard() {
         queryClient.setQueryData(["/api/companies"], context.previousCompanies);
         queryClient.setQueryData(["/api/companies/my"], context.previousMyCompanies);
         queryClient.setQueryData(["/api/companies/today"], context.previousTodayCompanies);
+        queryClient.setQueryData(["/api/companies/category/general"], context.previousGeneralCompanies);
         queryClient.setQueryData(["/api/companies/category/followup"], context.previousFollowupCompanies);
         queryClient.setQueryData(["/api/companies/category/hot"], context.previousHotCompanies);
         queryClient.setQueryData(["/api/companies/category/block"], context.previousBlockCompanies);
@@ -191,6 +196,7 @@ export default function Dashboard() {
       queryClient.setQueryData(["/api/companies"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/my"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/today"], updateCompanyInList);
+      queryClient.setQueryData(["/api/companies/category/general"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/followup"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/hot"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/block"], updateCompanyInList);
@@ -199,6 +205,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies/my"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/general"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies/category/followup"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies/category/hot"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies/category/block"] });
