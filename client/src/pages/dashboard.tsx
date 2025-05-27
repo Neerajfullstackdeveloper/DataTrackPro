@@ -58,6 +58,11 @@ export default function Dashboard() {
     refetchInterval: 5000, // Refetch every 5 seconds
   });
 
+  const { data: generalCompanies = [], isLoading: isLoadingGeneral } = useQuery<Company[]>({
+    queryKey: ["/api/companies/category/general"],
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
   const { data: followUpCompanies = [], isLoading: isLoadingFollowUp } = useQuery<Company[]>({
     queryKey: ["/api/companies/category/followup"],
     refetchInterval: 5000, // Refetch every 5 seconds
@@ -130,6 +135,7 @@ export default function Dashboard() {
       await queryClient.cancelQueries({ queryKey: ["/api/companies"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/my"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/today"] });
+      await queryClient.cancelQueries({ queryKey: ["/api/companies/category/general"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/category/followup"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/category/hot"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/category/block"] });
@@ -138,6 +144,7 @@ export default function Dashboard() {
       const previousCompanies = queryClient.getQueryData<Company[]>(["/api/companies"]);
       const previousMyCompanies = queryClient.getQueryData<Company[]>(["/api/companies/my"]);
       const previousTodayCompanies = queryClient.getQueryData<Company[]>(["/api/companies/today"]);
+      const previousGeneralCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/general"]);
       const previousFollowupCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/followup"]);
       const previousHotCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/hot"]);
       const previousBlockCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/block"]);
@@ -149,6 +156,7 @@ export default function Dashboard() {
       queryClient.setQueryData(["/api/companies"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/my"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/today"], updateCompanyInList);
+      queryClient.setQueryData(["/api/companies/category/general"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/followup"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/hot"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/block"], updateCompanyInList);
@@ -157,6 +165,7 @@ export default function Dashboard() {
         previousCompanies,
         previousMyCompanies,
         previousTodayCompanies,
+        previousGeneralCompanies,
         previousFollowupCompanies,
         previousHotCompanies,
         previousBlockCompanies
@@ -321,6 +330,9 @@ export default function Dashboard() {
         break;
       case "todayData":
         prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/companies/today"] }));
+        break;
+      case "general":
+        prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/companies/category/general"] }));
         break;
       case "followUp":
         prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/companies/category/followup"] }));
@@ -630,6 +642,121 @@ export default function Dashboard() {
               <p className="text-gray-600">Request Facebook company data</p>
             </div>
             <FacebookRequestForm />
+          </div>
+        );
+      case "general":
+        return (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Follow-Up Companies</h2>
+              <p className="text-gray-600">View companies that need follow-up</p>
+            </div>
+            {isLoadingFollowUp ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : followUpCompanies.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {followUpCompanies.map((company) => (
+                  <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-medium text-gray-900">{company.name}</h4>
+                            <p className="text-sm text-gray-500">ID: {company.id}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant="outline" className="capitalize">
+                              {company.industry}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              Needs Follow-up
+                            </Badge>
+                            {company.assignedToUserId && (
+                              <Badge variant="secondary" className="text-xs">
+                                Assigned
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {company.companySize && (
+                            <div className="flex items-center text-gray-600">
+                              <Users className="h-4 w-4 mr-2" />
+                              {company.companySize}
+                            </div>
+                          )}
+                          {company.email && (
+                            <div className="flex items-center text-gray-600">
+                              <Mail className="h-4 w-4 mr-2" />
+                              {company.email}
+                            </div>
+                          )}
+                          {company.phone && (
+                            <div className="flex items-center text-gray-600">
+                              <Phone className="h-4 w-4 mr-2" />
+                              {company.phone}
+                            </div>
+                          )}
+                          {company.website && (
+                            <div className="flex items-center text-gray-600">
+                              <Globe className="h-4 w-4 mr-2" />
+                              {company.website}
+                            </div>
+                          )}
+                        </div>
+
+                        {company.address && (
+                          <div className="flex items-start text-sm text-gray-600">
+                            <MapPin className="h-4 w-4 mr-2 mt-0.5" />
+                            <span>{company.address}</span>
+                          </div>
+                        )}
+
+                        {company.notes && (
+                          <div className="mt-2 text-sm text-gray-600">
+                            <p className="font-medium mb-1">Notes:</p>
+                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                          <div className="flex items-center">
+                            <Calendar className="h-3 w-3 mr-1" />
+                            {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full"
+                            onClick={() => setSelectedCompany(company)}
+                          >
+                            Add Comment
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Clock className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Follow-up Required</h3>
+                  <p className="text-gray-600">There are no companies that need follow-up at the moment.</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         );
       case "followUp":
