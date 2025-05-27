@@ -774,19 +774,7 @@ export default function Dashboard() {
                             <h4 className="font-medium text-gray-900">{company.name}</h4>
                             <p className="text-sm text-gray-500">ID: {company.id}</p>
                           </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant="outline" className="capitalize">
-                              {company.industry}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              Needs Follow-up
-                            </Badge>
-                            {company.assignedToUserId && (
-                              <Badge variant="secondary" className="text-xs">
-                                Assigned
-                              </Badge>
-                            )}
-                          </div>
+                          
                         </div>
 
                         <div className="space-y-2">
@@ -827,6 +815,12 @@ export default function Dashboard() {
                           <div className="mt-2 text-sm text-gray-600">
                             <p className="font-medium mb-1">Notes:</p>
                             <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
+                          </div>
+                        )}
+                        {company.comment && (
+                          <div className="mt-2 text-sm text-gray-600">
+                            <p className="font-medium mb-1">Notes:</p>
+                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.comment}</p>
                           </div>
                         )}
 
