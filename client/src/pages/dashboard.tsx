@@ -403,16 +403,7 @@ export default function Dashboard() {
                               <h4 className="font-medium text-gray-900 truncate group-hover:text-primary transition-colors">{company.name}</h4>
                               <p className="text-sm text-gray-500">ID: {company.id}</p>
                             </div>
-                            <div className="flex flex-col items-end gap-1 ml-4">
-                              <Badge variant="outline" className="capitalize whitespace-nowrap bg-gray-50">
-                                {company.industry}
-                              </Badge>
-                              {company.assignedToUserId && (
-                                <Badge variant="secondary" className="text-xs whitespace-nowrap">
-                                  Assigned
-                                </Badge>
-                              )}
-                            </div>
+
                           </div>
 
                           <div className="space-y-2">
