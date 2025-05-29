@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CommentModal } from "@/components/dashboard/comment-modal";
+import { ViewCommentsModal } from "@/components/dashboard/view-comments-modal";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Company, Holiday, DataRequest, Comment, Section } from "@shared/schema";
-import { Menu, Bell, User, Database, Calendar, Clock, Plus, Download, Loader2, LogOut, Users, Mail, Phone, Globe, MapPin, Flame, Building } from "lucide-react";
+import { Menu, Bell, User, Database, Calendar, Clock, Plus, Download, Loader2, LogOut, Users, Mail, Phone, Globe, MapPin, Flame, Building, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { AssignedCompanies } from "@/components/dashboard/assigned-companies";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [viewCommentsCompany, setViewCommentsCompany] = useState<Company | null>(null);
   const [activeSection, setActiveSection] = useState<Section>("allData");
   const [isLoading, setIsLoading] = useState(true);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
@@ -84,6 +86,17 @@ export default function Dashboard() {
     enabled: activeSection === "requestData",
   });
 
+  // Add query for comments
+  const { data: comments = [], isLoading: isLoadingComments } = useQuery<Comment[]>({
+    queryKey: ["/api/comments/company", selectedCompany?.id],
+    queryFn: async () => {
+      if (!selectedCompany) return [];
+      const response = await apiRequest("GET", `/api/comments/company/${selectedCompany.id}`);
+      return response.json();
+    },
+    enabled: !!selectedCompany,
+  });
+
   // Mutations
   const createRequestMutation = useMutation({
     mutationFn: async (requestData: any) => {
@@ -110,7 +123,7 @@ export default function Dashboard() {
       toast({ 
         title: "Failed to create request", 
         variant: "destructive",
-         description: err.message || "Please check your input and try again."
+        description: err.message || "Please check your input and try again."
       });
     },
     onSuccess: (newRequest) => {
@@ -417,7 +430,6 @@ export default function Dashboard() {
                               <h4 className="font-medium text-gray-900 truncate group-hover:text-primary transition-colors">{company.name}</h4>
                               <p className="text-sm text-gray-500">ID: {company.id}</p>
                             </div>
-                            
                           </div>
 
                           <div className="space-y-2">
@@ -473,14 +485,67 @@ export default function Dashboard() {
                           </div>
 
                           <div className="pt-2 border-t border-gray-100">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full hover:bg-primary hover:text-white transition-colors"
-                              onClick={() => setSelectedCompany(company)}
-                            >
-                              Add Comment
-                            </Button>
+                            <div className="flex items-center justify-between mb-2">
+                              <h5 className="font-medium text-gray-900 flex items-center">
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                                Comments
+                              </h5>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setViewCommentsCompany(company)}
+                                >
+                                  Show Comments
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSelectedCompany(company)}
+                                >
+                                  Add Comment
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {selectedCompany?.id === company.id && isLoadingComments ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            ) : selectedCompany?.id === company.id && comments.length > 0 ? (
+                              <div className="space-y-3 max-h-48 overflow-y-auto">
+                                {comments.slice(0, 2).map((comment) => (
+                                  <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {comment.user?.fullName || 'Unknown User'}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">{comment.content}</p>
+                                    <Badge variant="outline" className="mt-2 capitalize">
+                                      {comment.category}
+                                    </Badge>
+                                  </div>
+                                ))}
+                                {comments.length > 2 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full text-primary"
+                                    onClick={() => setViewCommentsCompany(company)}
+                                  >
+                                    Show {comments.length - 2} more comments
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 text-center py-2">
+                                No comments yet. Be the first to comment!
+                              </p>
+                            )}
                           </div>
                         </div>
                       </CardContent>
@@ -1148,7 +1213,7 @@ export default function Dashboard() {
                         />
                       </div>
                       <Button type="submit" disabled={createRequestMutation.isPending} className="md:col-span-2">
-                       {createRequestMutation.isPending ? (
+                        {createRequestMutation.isPending ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Submitting...
@@ -1383,6 +1448,7 @@ export default function Dashboard() {
           hotDataCount={hotCompanies.length}
           blockDataCount={blockCompanies.length}
           logoutMutation={logoutMutation}
+          general={String(generalCompanies.length)}
         />
         <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
           <div className="max-w-7xl mx-auto">
@@ -1396,6 +1462,14 @@ export default function Dashboard() {
           company={selectedCompany}
           isOpen={!!selectedCompany}
           onClose={() => setSelectedCompany(null)}
+        />
+      )}
+
+      {viewCommentsCompany && (
+        <ViewCommentsModal
+          company={viewCommentsCompany}
+          isOpen={!!viewCommentsCompany}
+          onClose={() => setViewCommentsCompany(null)}
         />
       )}
     </div>
