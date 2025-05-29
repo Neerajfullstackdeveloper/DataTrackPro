@@ -102,7 +102,7 @@ export default function Dashboard() {
       
       return { previousRequests };
     },
-    onError: (err, newRequest, context) => {
+    onError: (err: Error, newRequest, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousRequests) {
         queryClient.setQueryData(["/api/data-requests"], context.previousRequests);
@@ -110,7 +110,7 @@ export default function Dashboard() {
       toast({ 
         title: "Failed to create request", 
         variant: "destructive",
-        description: "Please try again later."
+         description: err.message || "Please check your input and try again."
       });
     },
     onSuccess: (newRequest) => {
@@ -1116,6 +1116,28 @@ export default function Dashboard() {
                   <CardContent>
                     <form onSubmit={handleDataRequestSubmit} className="space-y-4">
                       <div className="md:col-span-2">
+                        <Label htmlFor="requestType">Request Type</Label>
+                        <select
+                          name="requestType"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                          required
+                        >
+                          <option value="">Select request type</option>
+                          <option value="company_data">Company Data</option>
+                          <option value="facebook_data">Facebook Data</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label htmlFor="industry">Industry (Optional)</Label>
+                        <input
+                          type="text"
+                          name="industry"
+                          placeholder="e.g., Technology, Healthcare, etc."
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
                         <Label htmlFor="justification">Justification</Label>
                         <textarea
                           name="justification"
@@ -1126,7 +1148,14 @@ export default function Dashboard() {
                         />
                       </div>
                       <Button type="submit" disabled={createRequestMutation.isPending} className="md:col-span-2">
-                        {createRequestMutation.isPending ? "Submitting..." : "Submit Request"}
+                       {createRequestMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          "Submit Request"
+                        )}
                       </Button>
                     </form>
                   </CardContent>
