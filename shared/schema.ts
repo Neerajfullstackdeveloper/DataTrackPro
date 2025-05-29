@@ -242,7 +242,12 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
-export type Comment = typeof comments.$inferSelect;
+export type Comment = typeof comments.$inferSelect & {
+  user?: {
+    id: number;
+    fullName: string;
+  };
+};
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type DataRequest = typeof dataRequests.$inferSelect;
 export type InsertDataRequest = z.infer<typeof insertDataRequestSchema>;
