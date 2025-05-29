@@ -15,6 +15,7 @@ import { User, DataRequest, Company, Holiday, FacebookDataRequest } from "@share
 import { Users, ClipboardList, BarChart, Loader2, Plus, Edit, Trash2, Building, CalendarDays, Facebook } from "lucide-react";
 import { format } from "date-fns";
 import { AdminCompanyForm } from "./admin-company-form";
+import { AssignCompanyModal } from "./assign-company-modal";
 
 export function AdminPanel() {
   const { toast } = useToast();
@@ -49,6 +50,8 @@ export function AdminPanel() {
     description: "",
     duration: "full_day"
   });
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [assignCompany, setAssignCompany] = useState<Company | null>(null);
 
   // Queries
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
@@ -859,14 +862,23 @@ export function AdminPanel() {
                       <h4 className="font-medium text-gray-900">{company.name}</h4>
                       <div className="flex space-x-2">
                         {(!company.assignedToUserId || user?.role === "admin") && (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => deleteCompanyMutation.mutate(company.id)}
-                            disabled={deleteCompanyMutation.isPending}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setAssignCompany(company)}
+                            >
+                              Assign
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => deleteCompanyMutation.mutate(company.id)}
+                              disabled={deleteCompanyMutation.isPending}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
