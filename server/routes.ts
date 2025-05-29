@@ -221,14 +221,35 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
+      console.log('Received data request:', req.body);
+      
+      // Validate the data
       const validatedData = insertDataRequestSchema.parse(req.body);
+      console.log('Validated data request:', validatedData);
+      
+      // Create the request
       const request = await storage.createDataRequest({
         ...validatedData,
         userId: req.user!.id,
       });
+      
+      console.log('Created data request:', request);
       res.status(201).json(request);
     } catch (error) {
-      res.status(400).json({ message: "Invalid request data" });
+      console.error('Data request creation error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid request data", 
+          errors: error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        });
+      }
+      res.status(400).json({ 
+        message: "Invalid request data", 
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -849,6 +870,23 @@ export function registerRoutes(app: Express): Server {
       res.sendStatus(200);
     } catch (error) {
       res.status(500).json({ message: "Failed to update company category" });
+    }
+  });
+
+  // Admin company management
+  app.get("/api/users", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    // Only admins, managers, and TLs can access user list
+    if (!["admin", "manager", "tl"].includes(req.user!.role)) {
+      return res.sendStatus(403);
+    }
+    
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
