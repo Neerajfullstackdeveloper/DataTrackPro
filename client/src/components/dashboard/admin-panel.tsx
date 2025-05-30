@@ -1027,16 +1027,32 @@ export function AdminPanel() {
     </div>
   );
 
-  switch (activeTab) {
-    case "users":
-      return renderUsers();
-    case "requests":
-      return renderRequests();
-    case "companies":
-      return renderCompanies();
-    case "holidays":
-      return renderHolidays();
-    default:
-      return renderOverview();
-  }
+  const renderContent = () => {
+    switch (activeTab) {
+      case "users":
+        return renderUsers();
+      case "requests":
+        return renderRequests();
+      case "companies":
+        return renderCompanies();
+      case "holidays":
+        return renderHolidays();
+      default:
+        return renderOverview();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {renderContent()}
+      
+      {assignCompany && (
+        <AssignCompanyModal
+          company={assignCompany}
+          isOpen={!!assignCompany}
+          onClose={() => setAssignCompany(null)}
+        />
+      )}
+    </div>
+  );
 }
