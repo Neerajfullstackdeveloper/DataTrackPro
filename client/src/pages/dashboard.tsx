@@ -486,10 +486,6 @@ export default function Dashboard() {
 
                           <div className="pt-2 border-t border-gray-100">
                             <div className="flex items-center justify-between mb-2">
-                              <h5 className="font-medium text-gray-900 flex items-center">
-                                <MessageSquare className="h-4 w-4 mr-2" />
-                                Comments
-                              </h5>
                               <div className="flex gap-2">
                                 <Button
                                   variant="outline"
@@ -498,9 +494,19 @@ export default function Dashboard() {
                                 >
                                   Show Comments
                                 </Button>
-                                
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSelectedCompany(company)}
+                                  
+                                >
+                                  Add Comment
+                                </Button>
                               </div>
-                              <div className="flex items-center justify-between mb-2">
+                            </div>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex gap-2">
+                               
                                 <Button
                                   variant="outline"
                                   size="sm"
