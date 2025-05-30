@@ -896,7 +896,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         
-                        <div className="pt-2 border-t border-gray-100">
+                        {/* <div className="pt-2 border-t border-gray-100">
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -905,7 +905,72 @@ export default function Dashboard() {
                           >
                             Add Comment
                           </Button>
-                        </div>
+                        </div> */}
+                        <div className="pt-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setViewCommentsCompany(company)}
+                                >
+                                  Show Comments
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex gap-2">
+                               
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSelectedCompany(company)}
+                                  
+                                >
+                                  Add Comment
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {selectedCompany?.id === company.id && isLoadingComments ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            ) : selectedCompany?.id === company.id && comments.length > 0 ? (
+                              <div className="space-y-3 max-h-48 overflow-y-auto">
+                                {comments.slice(0, 2).map((comment) => (
+                                  <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {comment.user?.fullName || 'Unknown User'}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">{comment.content}</p>
+                                    <Badge variant="outline" className="mt-2 capitalize">
+                                      {comment.category}
+                                    </Badge>
+                                  </div>
+                                ))}
+                                {comments.length > 2 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full text-primary"
+                                    onClick={() => setViewCommentsCompany(company)}
+                                  >
+                                    Show {comments.length - 2} more comments
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 text-center py-2">
+                                No comments yet. Be the first to comment!
+                              </p>
+                            )}
+                          </div>
                       </div>
                     </CardContent>
                   </Card>
