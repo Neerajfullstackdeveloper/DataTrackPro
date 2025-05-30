@@ -498,10 +498,14 @@ export default function Dashboard() {
                                 >
                                   Show Comments
                                 </Button>
+                                
+                              </div>
+                              <div className="flex items-center justify-between mb-2">
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => setSelectedCompany(company)}
+                                  
                                 >
                                   Add Comment
                                 </Button>
