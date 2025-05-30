@@ -895,7 +895,18 @@ export default function Dashboard() {
                             {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
                           </div>
                         </div>
-
+                        <div className="pt-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setViewCommentsCompany(company)}
+                                >
+                                  Show Comments
+                                </Button>
+                              </div>
+                            </div>
                         <div className="pt-2 border-t border-gray-100">
                           <Button 
                             variant="outline" 
