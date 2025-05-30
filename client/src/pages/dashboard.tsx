@@ -405,7 +405,7 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">All Companies</h2>
               <p className="text-gray-600">View and manage all company data</p>
             </div>
-            {isLoadingAllCompanies ? (
+            {isLoadingMyCompanies ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
                 {[...Array(8)].map((_, i) => (
                   <Card key={i} className="animate-pulse">
@@ -421,7 +421,7 @@ export default function Dashboard() {
             ) : (
               <>
                 <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
-                  {allCompanies.slice(0, displayCount).map((company) => (
+                  {myCompanies.slice(0, displayCount).map((company) => (
                     <Card key={company.id} className="group hover:shadow-lg transition-all duration-200 ease-in-out border border-gray-200">
                       <CardContent className="p-4 md:p-6">
                         <div className="space-y-3">
