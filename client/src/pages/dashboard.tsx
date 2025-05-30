@@ -1070,10 +1070,10 @@ export default function Dashboard() {
                             <Calendar className="h-3 w-3 mr-1" />
                             {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
                           </div>
-                          <div className="flex items-center">
+                          {/* <div className="flex items-center">
                             <Clock className="h-3 w-3 mr-1" />
                             {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
+                          </div> */}
                         </div>
 
                         {/* <div className="pt-2 border-t border-gray-100">
