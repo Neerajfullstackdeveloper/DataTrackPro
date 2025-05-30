@@ -399,288 +399,176 @@ export default function Dashboard() {
 
     switch (activeSection) {
       case "allData":
-        return user?.role === "employee" ? (
+        return (
           <div>
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Assigned Companies</h2>
-              <p className="text-gray-600">View companies assigned to you</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">All Companies</h2>
+              <p className="text-gray-600">View and manage all company data</p>
             </div>
-            {isLoadingMyCompanies ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : myCompanies.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {myCompanies.map((company) => (
-                  <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
+            {isLoadingAllCompanies ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
+                {[...Array(8)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="p-4 md:p-6">
                       <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium text-gray-900">{company.name}</h4>
-                            <p className="text-sm text-gray-500">ID: {company.id}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant="outline" className="capitalize">
-                              {company.industry}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          {company.companySize && (
-                            <div className="flex items-center text-gray-600">
-                              <Users className="h-4 w-4 mr-2" />
-                              {company.companySize}
-                            </div>
-                          )}
-                          {company.email && (
-                            <div className="flex items-center text-gray-600">
-                              <Mail className="h-4 w-4 mr-2" />
-                              {company.email}
-                            </div>
-                          )}
-                          {company.phone && (
-                            <div className="flex items-center text-gray-600">
-                              <Phone className="h-4 w-4 mr-2" />
-                              {company.phone}
-                            </div>
-                          )}
-                          {company.website && (
-                            <div className="flex items-center text-gray-600">
-                              <Globe className="h-4 w-4 mr-2" />
-                              {company.website}
-                            </div>
-                          )}
-                        </div>
-
-                        {company.address && (
-                          <div className="flex items-start text-sm text-gray-600">
-                            <MapPin className="h-4 w-4 mr-2 mt-0.5" />
-                            <span>{company.address}</span>
-                          </div>
-                        )}
-
-                        {company.notes && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                          <div className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                          <div className="flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-gray-100">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => setSelectedCompany(company)}
-                          >
-                            Add Comment
-                          </Button>
-                        </div>
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             ) : (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <Database className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Companies Assigned</h3>
-                  <p className="text-gray-600">You have not been assigned any companies yet.</p>
-                </CardContent>
-              </Card>
+              <>
+                <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
+                  {allCompanies.slice(0, displayCount).map((company) => (
+                    <Card key={company.id} className="group hover:shadow-lg transition-all duration-200 ease-in-out border border-gray-200">
+                      <CardContent className="p-4 md:p-6">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-gray-900 truncate group-hover:text-primary transition-colors">{company.name}</h4>
+                              <p className="text-sm text-gray-500">ID: {company.id}</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            {company.companySize && (
+                              <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+                                <Users className="h-4 w-4 mr-2" />
+                                <span className="text-sm">{company.companySize}</span>
+                              </div>
+                            )}
+                            {company.email && (
+                              <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+                                <Mail className="h-4 w-4 mr-2" />
+                                <span className="text-sm truncate">{company.email}</span>
+                              </div>
+                            )}
+                            {company.phone && (
+                              <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+                                <Phone className="h-4 w-4 mr-2" />
+                                <span className="text-sm">{company.phone}</span>
+                              </div>
+                            )}
+                            {company.website && (
+                              <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+                                <Globe className="h-4 w-4 mr-2" />
+                                <span className="text-sm truncate">{company.website}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {company.address && (
+                            <div className="flex items-start text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                              <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                              <span className="line-clamp-2">{company.address}</span>
+                            </div>
+                          )}
+
+                          {company.notes && (
+                            <div className="mt-2 text-sm text-gray-600">
+                              <p className="font-medium mb-1">Notes:</p>
+                              <p className="whitespace-pre-line bg-gray-50 p-2 rounded line-clamp-3">{company.notes}</p>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                            <div className="flex items-center">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                            <div className="flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setViewCommentsCompany(company)}
+                                >
+                                  Show Comments
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex gap-2">
+                               
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSelectedCompany(company)}
+                                  
+                                >
+                                  Add Comment
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {selectedCompany?.id === company.id && isLoadingComments ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            ) : selectedCompany?.id === company.id && comments.length > 0 ? (
+                              <div className="space-y-3 max-h-48 overflow-y-auto">
+                                {comments.slice(0, 2).map((comment) => (
+                                  <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {comment.user?.fullName || 'Unknown User'}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">{comment.content}</p>
+                                    <Badge variant="outline" className="mt-2 capitalize">
+                                      {comment.category}
+                                    </Badge>
+                                  </div>
+                                ))}
+                                {comments.length > 2 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full text-primary"
+                                    onClick={() => setViewCommentsCompany(company)}
+                                  >
+                                    Show {comments.length - 2} more comments
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 text-center py-2">
+                                No comments yet. Be the first to comment!
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                {allCompanies.length > displayCount && (
+                  <div className="mt-6 text-center">
+                    <Button
+                      variant="outline"
+                      onClick={handleLoadMore}
+                      className="px-6 hover:bg-primary hover:text-white transition-colors"
+                    >
+                      Load More
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
-            <p className="text-gray-600">You don't have permission to view assigned data.</p>
-          </div>
         );
-      default:
-        // return (
-        //   <div>
-        //     <div className="mb-6">
-        //       <h2 className="text-2xl font-bold text-gray-900 mb-2">All Companies</h2>
-        //       <p className="text-gray-600">View and manage all company data</p>
-        //     </div>
-        //     {isLoadingAllCompanies ? (
-        //       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
-        //         {[...Array(8)].map((_, i) => (
-        //           <Card key={i} className="animate-pulse">
-        //             <CardContent className="p-4 md:p-6">
-        //               <div className="space-y-3">
-        //                 <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-        //                 <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-        //               </div>
-        //             </CardContent>
-        //           </Card>
-        //         ))}
-        //       </div>
-        //     ) : (
-        //       <>
-        //         <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
-        //           {allCompanies.slice(0, displayCount).map((company) => (
-        //             <Card key={company.id} className="group hover:shadow-lg transition-all duration-200 ease-in-out border border-gray-200">
-        //               <CardContent className="p-4 md:p-6">
-        //                 <div className="space-y-3">
-        //                   <div className="flex items-start justify-between">
-        //                     <div className="flex-1 min-w-0">
-        //                       <h4 className="font-medium text-gray-900 truncate group-hover:text-primary transition-colors">{company.name}</h4>
-        //                       <p className="text-sm text-gray-500">ID: {company.id}</p>
-        //                     </div>
-        //                   </div>
-
-        //                   <div className="space-y-2">
-        //                     {company.companySize && (
-        //                       <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-        //                         <Users className="h-4 w-4 mr-2" />
-        //                         <span className="text-sm">{company.companySize}</span>
-        //                       </div>
-        //                     )}
-        //                     {company.email && (
-        //                       <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-        //                         <Mail className="h-4 w-4 mr-2" />
-        //                         <span className="text-sm truncate">{company.email}</span>
-        //                       </div>
-        //                     )}
-        //                     {company.phone && (
-        //                       <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-        //                         <Phone className="h-4 w-4 mr-2" />
-        //                         <span className="text-sm">{company.phone}</span>
-        //                       </div>
-        //                     )}
-        //                     {company.website && (
-        //                       <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-        //                         <Globe className="h-4 w-4 mr-2" />
-        //                         <span className="text-sm truncate">{company.website}</span>
-        //                       </div>
-        //                     )}
-        //                   </div>
-
-        //                   {company.address && (
-        //                     <div className="flex items-start text-sm text-gray-600 hover:text-gray-900 transition-colors">
-        //                       <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-        //                       <span className="line-clamp-2">{company.address}</span>
-        //                     </div>
-        //                   )}
-
-        //                   {company.notes && (
-        //                     <div className="mt-2 text-sm text-gray-600">
-        //                       <p className="font-medium mb-1">Notes:</p>
-        //                       <p className="whitespace-pre-line bg-gray-50 p-2 rounded line-clamp-3">{company.notes}</p>
-        //                     </div>
-        //                   )}
-
-        //                   <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-        //                     <div className="flex items-center">
-        //                       <Calendar className="h-3 w-3 mr-1" />
-        //                       {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
-        //                     </div>
-        //                     <div className="flex items-center">
-        //                       <Clock className="h-3 w-3 mr-1" />
-        //                       {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-        //                     </div>
-        //                   </div>
-
-        //                   <div className="pt-2 border-t border-gray-100">
-        //                     <div className="flex items-center justify-between mb-2">
-        //                       <div className="flex gap-2">
-        //                         <Button
-        //                           variant="outline"
-        //                           size="sm"
-        //                           onClick={() => setViewCommentsCompany(company)}
-        //                         >
-        //                           Show Comments
-        //                         </Button>
-        //                       </div>
-        //                     </div>
-        //                     <div className="flex items-center justify-between mb-2">
-        //                       <div className="flex gap-2">
-                               
-        //                         <Button
-        //                           variant="outline"
-        //                           size="sm"
-        //                           onClick={() => setSelectedCompany(company)}
-                                  
-        //                         >
-        //                           Add Comment
-        //                         </Button>
-        //                       </div>
-        //                     </div>
-                            
-        //                     {selectedCompany?.id === company.id && isLoadingComments ? (
-        //                       <div className="flex items-center justify-center py-4">
-        //                         <Loader2 className="h-4 w-4 animate-spin" />
-        //                       </div>
-        //                     ) : selectedCompany?.id === company.id && comments.length > 0 ? (
-        //                       <div className="space-y-3 max-h-48 overflow-y-auto">
-        //                         {comments.slice(0, 2).map((comment) => (
-        //                           <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
-        //                             <div className="flex items-center justify-between mb-1">
-        //                               <span className="text-sm font-medium text-gray-900">
-        //                                 {comment.user?.fullName || 'Unknown User'}
-        //                               </span>
-        //                               <span className="text-xs text-gray-500">
-        //                                 {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
-        //                               </span>
-        //                             </div>
-        //                             <p className="text-sm text-gray-600">{comment.content}</p>
-        //                             <Badge variant="outline" className="mt-2 capitalize">
-        //                               {comment.category}
-        //                             </Badge>
-        //                           </div>
-        //                         ))}
-        //                         {comments.length > 2 && (
-        //                           <Button
-        //                             variant="ghost"
-        //                             size="sm"
-        //                             className="w-full text-primary"
-        //                             onClick={() => setViewCommentsCompany(company)}
-        //                           >
-        //                             Show {comments.length - 2} more comments
-        //                           </Button>
-        //                         )}
-        //                       </div>
-        //                     ) : (
-        //                       <p className="text-sm text-gray-500 text-center py-2">
-        //                         No comments yet. Be the first to comment!
-        //                       </p>
-        //                     )}
-        //                   </div>
-        //                 </div>
-        //               </CardContent>
-        //             </Card>
-        //           ))}
-        //         </div>
-        //         {allCompanies.length > displayCount && (
-        //           <div className="mt-6 text-center">
-        //             <Button
-        //               variant="outline"
-        //               onClick={handleLoadMore}
-        //               className="px-6 hover:bg-primary hover:text-white transition-colors"
-        //             >
-        //               Load More
-        //             </Button>
-        //           </div>
-        //         )}
-        //       </>
-        //     )}
-        //   </div>
-        // );
       case "todayData":
         return (
           <div>
