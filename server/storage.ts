@@ -306,6 +306,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createComment(comment: InsertComment & { userId: number }): Promise<Comment> {
+    // First check if a comment in this category already exists
+    const existingComment = await db
+      .select()
+      .from(comments)
+      .where(
+        and(
+          eq(comments.companyId, comment.companyId),
+          eq(comments.category, comment.category)
+        )
+      )
+      .limit(1);
+
+    // If a comment in this category exists, just update the timestamp
+    if (existingComment.length > 0) {
+      await db
+        .update(companies)
+        .set({ updatedAt: new Date() })
+        .where(eq(companies.id, comment.companyId));
+      return existingComment[0];
+    }
+
+    // If no comment exists in this category, create a new one
     const [newComment] = await db
       .insert(comments)
       .values({
