@@ -321,6 +321,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCompanyStatus(companyId: number, category: string): Promise<void> {
+    // First check if the company already has a follow-up comment
+    if (category === "followup") {
+      const existingFollowupComment = await db
+        .select()
+        .from(comments)
+        .where(
+          and(
+            eq(comments.companyId, companyId),
+            eq(comments.category, "followup")
+          )
+        )
+        .limit(1);
+
+      // If there's already a follow-up comment, just update the timestamp
+      if (existingFollowupComment.length > 0) {
+        await db
+          .update(companies)
+          .set({ updatedAt: new Date() })
+          .where(eq(companies.id, companyId));
+        return;
+      }
+    }
+
+    // If it's a new follow-up or different category, update the company
     await db
       .update(companies)
       .set({ updatedAt: new Date() })
