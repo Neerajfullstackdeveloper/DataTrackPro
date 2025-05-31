@@ -226,18 +226,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCompaniesByCategory(category: string, userId?: number): Promise<Company[]> {
-    // First get all companies with their most recent comment
-    const subquery = db
-      .select({
-        companyId: comments.companyId,
-        category: comments.category,
-        createdAt: comments.createdAt
-      })
-      .from(comments)
-      .orderBy(desc(comments.createdAt))
-      .as('latest_comments');
-
-    const baseQuery = db
+    // Get companies that have a comment in the specified category
+    const query = db
       .select({
         id: companies.id,
         name: companies.name,
@@ -255,19 +245,17 @@ export class DatabaseStorage implements IStorage {
       })
       .from(companies)
       .innerJoin(
-        subquery,
+        comments,
         and(
-          eq(companies.id, subquery.companyId),
-          eq(subquery.category, category)
+          eq(companies.id, comments.companyId),
+          eq(comments.category, category)
         )
-      );
+      )
+      .where(userId ? eq(companies.assignedToUserId, userId) : undefined)
+      .groupBy(companies.id)
+      .orderBy(desc(companies.updatedAt));
 
-    // Add user filter if specified
-    const query = userId 
-      ? baseQuery.where(eq(companies.assignedToUserId, userId))
-      : baseQuery;
-
-    return await query.orderBy(desc(companies.updatedAt));
+    return await query;
   }
 
   // Comment management
@@ -321,14 +309,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createComment(comment: InsertComment & { userId: number }): Promise<Comment> {
-    // Create the new comment
-    const [newComment] = await db
-      .insert(comments)
-      .values({
-        ...comment,
-        commentDate: new Date(comment.commentDate)
-      })
-      .returning();
+    // First check if this company already has a comment in this category
+    const existingComment = await db
+      .select()
+      .from(comments)
+      .where(
+        and(
+          eq(comments.companyId, comment.companyId),
+          eq(comments.category, comment.category)
+        )
+      )
+      .limit(1);
+
+    let newComment;
+    if (existingComment.length > 0) {
+      // If comment exists, update it instead of creating new one
+      [newComment] = await db
+        .update(comments)
+        .set({
+          content: comment.content,
+          commentDate: new Date(comment.commentDate),
+          updatedAt: new Date()
+        })
+        .where(eq(comments.id, existingComment[0].id))
+        .returning();
+    } else {
+      // Create new comment if none exists in this category
+      [newComment] = await db
+        .insert(comments)
+        .values({
+          ...comment,
+          commentDate: new Date(comment.commentDate)
+        })
+        .returning();
+    }
 
     // Update company timestamp
     await db
