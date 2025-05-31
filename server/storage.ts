@@ -315,54 +315,32 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
 
-    // Check if this is the first comment in this category for the company
-    const existingComments = await db
-      .select()
-      .from(comments)
-      .where(
-        and(
-          eq(comments.companyId, comment.companyId),
-          eq(comments.category, comment.category)
-        )
-      );
-
-    // Only update company status if this is the first comment in this category
-    if (existingComments.length === 1) {
-      await this.updateCompanyStatus(comment.companyId, comment.category);
-    } else {
-      // Just update the timestamp
-      await db
-        .update(companies)
-        .set({ updatedAt: new Date() })
-        .where(eq(companies.id, comment.companyId));
-    }
+    // Update company timestamp
+    await db
+      .update(companies)
+      .set({ updatedAt: new Date() })
+      .where(eq(companies.id, comment.companyId));
 
     return newComment;
   }
 
   async updateCompanyStatus(companyId: number, category: string): Promise<void> {
-    // Check if the company already has a comment in the same category
-    const existingComment = await db
+    // Get all comments for this company
+    const companyComments = await db
       .select()
       .from(comments)
-      .where(
-        and(
-          eq(comments.companyId, companyId),
-          eq(comments.category, category)
-        )
-      )
-      .limit(1);
+      .where(eq(comments.companyId, companyId))
+      .orderBy(desc(comments.createdAt));
 
-    // If there's already a comment in this category, just update the timestamp
-    if (existingComment.length > 0) {
-      await db
-        .update(companies)
-        .set({ updatedAt: new Date() })
-        .where(eq(companies.id, companyId));
+    // If there are no comments, do nothing
+    if (companyComments.length === 0) {
       return;
     }
 
-    // If it's a new category comment, update the company
+    // Get the most recent comment's category
+    const latestCategory = companyComments[0].category;
+
+    // Update company timestamp
     await db
       .update(companies)
       .set({ updatedAt: new Date() })
