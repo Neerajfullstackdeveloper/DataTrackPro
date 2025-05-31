@@ -226,12 +226,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCompaniesByCategory(category: string, userId?: number): Promise<Company[]> {
-    const baseCondition = eq(comments.category, category);
-    const whereCondition = userId 
-      ? and(baseCondition, eq(companies.assignedToUserId, userId))
-      : baseCondition;
+    // First get all companies with their most recent comment
+    const subquery = db
+      .select({
+        companyId: comments.companyId,
+        category: comments.category,
+        createdAt: comments.createdAt
+      })
+      .from(comments)
+      .orderBy(desc(comments.createdAt))
+      .as('latest_comments');
 
-    const query = db
+    const baseQuery = db
       .select({
         id: companies.id,
         name: companies.name,
@@ -248,11 +254,20 @@ export class DatabaseStorage implements IStorage {
         updatedAt: companies.updatedAt,
       })
       .from(companies)
-      .innerJoin(comments, eq(companies.id, comments.companyId))
-      .where(whereCondition)
-      .orderBy(desc(companies.updatedAt));
+      .innerJoin(
+        subquery,
+        and(
+          eq(companies.id, subquery.companyId),
+          eq(subquery.category, category)
+        )
+      );
 
-    return await query;
+    // Add user filter if specified
+    const query = userId 
+      ? baseQuery.where(eq(companies.assignedToUserId, userId))
+      : baseQuery;
+
+    return await query.orderBy(desc(companies.updatedAt));
   }
 
   // Comment management
