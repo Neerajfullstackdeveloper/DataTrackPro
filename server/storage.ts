@@ -74,6 +74,8 @@ export interface IStorage {
   getFacebookDataRequestById(id: number): Promise<FacebookDataRequest | undefined>;
 
   sessionStore: any;
+
+  cleanupExpiredAssignments(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -186,10 +188,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCompaniesByUser(userId: number): Promise<Company[]> {
+    // Get the date 24 hours ago
+    const oneDayAgo = new Date();
+    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+
     return await db
       .select()
       .from(companies)
-      .where(eq(companies.assignedToUserId, userId))
+      .where(
+        and(
+          eq(companies.assignedToUserId, userId),
+          sql`${companies.assignedAt} > ${oneDayAgo}`
+        )
+      )
       .orderBy(desc(companies.updatedAt));
   }
 
@@ -420,7 +431,8 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(companies)
       .set({ 
-        assignedToUserId: userId, 
+        assignedToUserId: userId,
+        assignedAt: new Date(),
         updatedAt: new Date(),
         status: "active"
       })
@@ -521,6 +533,27 @@ export class DatabaseStorage implements IStorage {
       .from(companies)
       .where(isNull(companies.assignedToUserId))
       .limit(limit);
+  }
+
+  async cleanupExpiredAssignments(): Promise<void> {
+    // Get the date 24 hours ago
+    const oneDayAgo = new Date();
+    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+
+    // Unassign companies that were assigned more than 24 hours ago
+    await db
+      .update(companies)
+      .set({ 
+        assignedToUserId: null,
+        assignedAt: null,
+        updatedAt: new Date()
+      })
+      .where(
+        and(
+          sql`${companies.assignedAt} <= ${oneDayAgo}`,
+          isNull(companies.assignedToUserId).not()
+        )
+      );
   }
 }
 

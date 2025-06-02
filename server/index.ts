@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
 import { fileURLToPath } from "url";
+import { storage } from "./storage";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +41,16 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Run cleanup every hour
+setInterval(async () => {
+  try {
+    await storage.cleanupExpiredAssignments();
+    console.log('Cleaned up expired company assignments');
+  } catch (error) {
+    console.error('Error cleaning up expired assignments:', error);
+  }
+}, 60 * 60 * 1000); // 1 hour in milliseconds
 
 (async () => {
   const server = await registerRoutes(app);
