@@ -354,7 +354,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCompanyStatus(companyId: number, category: string): Promise<void> {
-    // Update company category and remove assignment
+    // Only remove assignment since category is determined by comments
     await db
       .update(companies)
       .set({ 

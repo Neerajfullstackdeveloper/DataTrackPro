@@ -44,34 +44,45 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
 
   const createCommentMutation = useMutation({
     mutationFn: async (data: CommentData) => {
-      // First create the comment
-      const commentResponse = await apiRequest("POST", "/api/comments", data);
-      if (!commentResponse.ok) {
-        const errorData = await commentResponse.json();
-        throw new Error(errorData.message || 'Failed to add comment');
-      }
-      const commentResult = await commentResponse.json();
+      try {
+        // First create the comment
+        const commentResponse = await apiRequest("POST", "/api/comments", data);
+        if (!commentResponse.ok) {
+          const errorData = await commentResponse.json();
+          throw new Error(errorData.message || 'Failed to add comment');
+        }
+        const commentResult = await commentResponse.json();
 
-      // Then update the company's category
-      const updateCompanyResponse = await apiRequest("POST", `/api/companies/${company.id}/category`, {
-        category: data.category
-      });
-      if (!updateCompanyResponse.ok) {
-        throw new Error('Failed to update company category');
-      }
+        // Then update the company's category and unassign it
+        const updateCompanyResponse = await apiRequest("POST", `/api/companies/${company.id}/category`, {
+          category: data.category
+        });
+        if (!updateCompanyResponse.ok) {
+          const errorData = await updateCompanyResponse.json();
+          throw new Error(errorData.message || 'Failed to update company category');
+        }
 
-      return commentResult;
+        // Wait for all queries to be invalidated
+        await Promise.all([
+          // First invalidate the assigned companies query to remove it from there
+          queryClient.invalidateQueries({ queryKey: ["/api/companies/my"] }),
+          
+          // Then invalidate the rest
+          queryClient.invalidateQueries({ queryKey: ["/api/comments/company", company.id] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/companies"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/companies/category/general"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/companies/category/followup"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/companies/category/hot"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/companies/category/block"] })
+        ]);
+
+        return commentResult;
+      } catch (error) {
+        console.error('Error in mutation:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
-      // Invalidate both comments and companies queries to refresh the data
-      queryClient.invalidateQueries({ queryKey: ["/api/comments/company", company.id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/companies"] }); // Invalidate all companies
-      queryClient.invalidateQueries({ queryKey: ["/api/companies/my"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/general"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/followup"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/hot"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/block"] });
-      
       toast({ title: "Comment added successfully" });
       onClose();
       setFormData({
