@@ -497,17 +497,7 @@ export default function Dashboard() {
                               </div>
                             </div>
                             <div className="flex items-center justify-between mb-2">
-                              <div className="flex gap-2">
-                               
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setSelectedCompany(company)}
-                                  
-                                >
-                                  Add Comment
-                                </Button>
-                              </div>
+                              
                             </div>
                             
                             {selectedCompany?.id === company.id && isLoadingComments ? (
