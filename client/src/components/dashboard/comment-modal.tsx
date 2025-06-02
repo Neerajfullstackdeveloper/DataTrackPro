@@ -52,11 +52,9 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
       }
       const commentResult = await commentResponse.json();
 
-      // Then update the company's category and remove it from assigned
-      const updateCompanyResponse = await apiRequest("PUT", `/api/companies/${company.id}`, {
-        category: data.category,
-        assignedToUserId: null, // Remove from assigned data
-        isAssigned: false // Explicitly mark as unassigned
+      // Then update the company's category
+      const updateCompanyResponse = await apiRequest("POST", `/api/companies/${company.id}/category`, {
+        category: data.category
       });
       if (!updateCompanyResponse.ok) {
         throw new Error('Failed to update company category');

@@ -354,25 +354,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCompanyStatus(companyId: number, category: string): Promise<void> {
-    // Get all comments for this company
-    const companyComments = await db
-      .select()
-      .from(comments)
-      .where(eq(comments.companyId, companyId))
-      .orderBy(desc(comments.createdAt));
-
-    // If there are no comments, do nothing
-    if (companyComments.length === 0) {
-      return;
-    }
-
-    // Get the most recent comment's category
-    const latestCategory = companyComments[0].category;
-
-    // Update company timestamp
+    // Update company category and remove assignment
     await db
       .update(companies)
-      .set({ updatedAt: new Date() })
+      .set({ 
+        assignedToUserId: null,
+        updatedAt: new Date() 
+      })
       .where(eq(companies.id, companyId));
   }
 
