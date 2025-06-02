@@ -1186,96 +1186,157 @@ export default function Dashboard() {
               </div>
             ) : blockCompanies.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {blockCompanies.map((company) => (
-                  <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium text-gray-900">{company.name}</h4>
-                            <p className="text-sm text-gray-500">ID: {company.id}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant="outline" className="capitalize">
-                              {company.industry}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              Blocked Data
-                            </Badge>
-                            {company.assignedToUserId && (
-                              <Badge variant="secondary" className="text-xs">
-                                Assigned
+                {[...blockCompanies]
+                  .sort((a, b) => {
+                    const aLatestComment = comments
+                      .filter(comment => comment.companyId === a.id)
+                      .sort((c1, c2) => new Date(c2.commentDate).getTime() - new Date(c1.commentDate).getTime())[0];
+                    const bLatestComment = comments
+                      .filter(comment => comment.companyId === b.id)
+                      .sort((c1, c2) => new Date(c2.commentDate).getTime() - new Date(c1.commentDate).getTime())[0];
+                    const aDate = aLatestComment ? new Date(aLatestComment.commentDate) : new Date(a.updatedAt || a.createdAt);
+                    const bDate = bLatestComment ? new Date(bLatestComment.commentDate) : new Date(b.updatedAt || b.createdAt);
+                    return bDate.getTime() - aDate.getTime();
+                  })
+                  .map((company) => (
+                    <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{company.name}</h4>
+                              <p className="text-sm text-gray-500">ID: {company.id}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge variant="outline" className="capitalize">
+                                {company.industry}
                               </Badge>
+                              <Badge variant="secondary" className="text-xs">
+                                Blocked Data
+                              </Badge>
+                              {company.assignedToUserId && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Assigned
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            {company.companySize && (
+                              <div className="flex items-center text-gray-600">
+                                <Users className="h-4 w-4 mr-2" />
+                                {company.companySize}
+                              </div>
+                            )}
+                            {company.email && (
+                              <div className="flex items-center text-gray-600">
+                                <Mail className="h-4 w-4 mr-2" />
+                                {company.email}
+                              </div>
+                            )}
+                            {company.phone && (
+                              <div className="flex items-center text-gray-600">
+                                <Phone className="h-4 w-4 mr-2" />
+                                {company.phone}
+                              </div>
+                            )}
+                            {company.website && (
+                              <div className="flex items-center text-gray-600">
+                                <Globe className="h-4 w-4 mr-2" />
+                                {company.website}
+                              </div>
+                            )}
+                          </div>
+
+                          {company.address && (
+                            <div className="flex items-start text-sm text-gray-600">
+                              <MapPin className="h-4 w-4 mr-2 mt-0.5" />
+                              <span>{company.address}</span>
+                            </div>
+                          )}
+
+                          {company.notes && (
+                            <div className="mt-2 text-sm text-gray-600">
+                              <p className="font-medium mb-1">Notes:</p>
+                              <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                            <div className="flex items-center">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                            <div className="flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => setViewCommentsCompany(company)}
+                                >
+                                  Show Comments
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => setSelectedCompany(company)}
+                                >
+                                  Add Comment
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {selectedCompany?.id === company.id && isLoadingComments ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            ) : selectedCompany?.id === company.id && comments.length > 0 ? (
+                              <div className="space-y-3 max-h-48 overflow-y-auto">
+                                {comments.slice(0, 2).map((comment) => (
+                                  <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {comment.user?.fullName || 'Unknown User'}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">{comment.content}</p>
+                                    <Badge variant="outline" className="mt-2 capitalize">
+                                      {comment.category}
+                                    </Badge>
+                                  </div>
+                                ))}
+                                {comments.length > 2 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full text-primary"
+                                    onClick={() => setViewCommentsCompany(company)}
+                                  >
+                                    Show {comments.length - 2} more comments
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 text-center py-2">
+                                No comments yet. Be the first to comment!
+                              </p>
                             )}
                           </div>
                         </div>
-
-                        <div className="space-y-2">
-                          {company.companySize && (
-                            <div className="flex items-center text-gray-600">
-                              <Users className="h-4 w-4 mr-2" />
-                              {company.companySize}
-                            </div>
-                          )}
-                          {company.email && (
-                            <div className="flex items-center text-gray-600">
-                              <Mail className="h-4 w-4 mr-2" />
-                              {company.email}
-                            </div>
-                          )}
-                          {company.phone && (
-                            <div className="flex items-center text-gray-600">
-                              <Phone className="h-4 w-4 mr-2" />
-                              {company.phone}
-                            </div>
-                          )}
-                          {company.website && (
-                            <div className="flex items-center text-gray-600">
-                              <Globe className="h-4 w-4 mr-2" />
-                              {company.website}
-                            </div>
-                          )}
-                        </div>
-
-                        {company.address && (
-                          <div className="flex items-start text-sm text-gray-600">
-                            <MapPin className="h-4 w-4 mr-2 mt-0.5" />
-                            <span>{company.address}</span>
-                          </div>
-                        )}
-
-                        {company.notes && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                          <div className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                          <div className="flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-gray-100">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="w-full"
-                            onClick={() => setViewCommentsCompany(company)}
-                          >
-                            Show Comments
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
               </div>
             ) : (
               <Card>
