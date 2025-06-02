@@ -52,10 +52,11 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
       }
       const commentResult = await commentResponse.json();
 
-      // Then update the company's category based on the comment category
+      // Then update the company's category and remove it from assigned
       const updateCompanyResponse = await apiRequest("PUT", `/api/companies/${company.id}`, {
         category: data.category,
-        assignedToUserId: null // Remove from assigned when moved to a category
+        assignedToUserId: null, // Remove from assigned data
+        isAssigned: false // Explicitly mark as unassigned
       });
       if (!updateCompanyResponse.ok) {
         throw new Error('Failed to update company category');
@@ -66,7 +67,9 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
     onSuccess: () => {
       // Invalidate both comments and companies queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["/api/comments/company", company.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] }); // Invalidate all companies
       queryClient.invalidateQueries({ queryKey: ["/api/companies/my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/general"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies/category/followup"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies/category/hot"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies/category/block"] });
