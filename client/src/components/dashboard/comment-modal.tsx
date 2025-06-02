@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Company } from "@shared/schema";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { format } from "date-fns";
@@ -18,9 +18,24 @@ interface CommentModalProps {
   onClose: () => void;
 }
 
+interface FormData {
+  content: string;
+  category: string;
+  date: string;
+  time: string;
+}
+
+interface CommentData {
+  companyId: number;
+  content: string;
+  category: string;
+  commentDate: string;
+}
+
 export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState<FormData>({
     content: "",
     category: "followup",
     date: format(new Date(), "yyyy-MM-dd"),
@@ -28,16 +43,34 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
   });
 
   const createCommentMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/comments", data);
-      if (!response.ok) {
-        const errorData = await response.json();
+    mutationFn: async (data: CommentData) => {
+      // First create the comment
+      const commentResponse = await apiRequest("POST", "/api/comments", data);
+      if (!commentResponse.ok) {
+        const errorData = await commentResponse.json();
         throw new Error(errorData.message || 'Failed to add comment');
       }
-      return response.json();
+      const commentResult = await commentResponse.json();
+
+      // Then update the company's category based on the comment category
+      const updateCompanyResponse = await apiRequest("PUT", `/api/companies/${company.id}`, {
+        category: data.category,
+        assignedToUserId: null // Remove from assigned when moved to a category
+      });
+      if (!updateCompanyResponse.ok) {
+        throw new Error('Failed to update company category');
+      }
+
+      return commentResult;
     },
     onSuccess: () => {
+      // Invalidate both comments and companies queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["/api/comments/company", company.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/followup"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/hot"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies/category/block"] });
+      
       toast({ title: "Comment added successfully" });
       onClose();
       setFormData({
@@ -87,7 +120,7 @@ export function CommentModal({ company, isOpen, onClose }: CommentModalProps) {
   };
 
   const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev: FormData) => ({ ...prev, [field]: value }));
   };
 
   return (
