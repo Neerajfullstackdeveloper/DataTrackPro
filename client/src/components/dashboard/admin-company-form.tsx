@@ -19,10 +19,28 @@ export function AdminCompanyForm() {
 
   const createCompanyMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/admin/companies", data);
-      return response.json();
+      console.log('[AdminCompanyForm] Sending company data to server:', data);
+      try {
+        const response = await apiRequest("POST", "/api/admin/companies", data);
+        console.log('[AdminCompanyForm] Server response status:', response.status);
+        
+        // If response is not ok, try to get error details
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          console.error('[AdminCompanyForm] Server error response:', errorData);
+          throw new Error(errorData?.message || 'Failed to add company');
+        }
+        
+        const responseData = await response.json();
+        console.log('[AdminCompanyForm] Server response data:', responseData);
+        return responseData;
+      } catch (error) {
+        console.error('[AdminCompanyForm] Error in API request:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      console.log('[AdminCompanyForm] Company created successfully');
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       toast({ title: "Company added successfully" });
       // Reset form
@@ -31,13 +49,23 @@ export function AdminCompanyForm() {
       setNewProduct("");
       setNewService("");
     },
-    onError: () => {
-      toast({ title: "Failed to add company", variant: "destructive" });
+    onError: (error: any) => {
+      console.error('[AdminCompanyForm] Mutation error:', {
+        error,
+        message: error.message,
+        stack: error.stack
+      });
+      toast({ 
+        title: "Failed to add company", 
+        description: error.message || "Please try again",
+        variant: "destructive" 
+      });
     },
   });
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log('[AdminCompanyForm] Form submission started');
     const formData = new FormData(e.currentTarget);
     const data = {
       name: formData.get("name") as string,
@@ -47,12 +75,26 @@ export function AdminCompanyForm() {
       products: products,
       services: services,
     };
+    console.log('[AdminCompanyForm] Prepared form data:', data);
+    
+    // Validate required fields
+    if (!data.name || !data.address || !data.email || !data.phone) {
+      console.error('[AdminCompanyForm] Validation error: Missing required fields');
+      toast({ 
+        title: "Validation Error", 
+        description: "Please fill in all required fields",
+        variant: "destructive" 
+      });
+      return;
+    }
+    
     createCompanyMutation.mutate(data);
     e.currentTarget.reset();
   };
 
   const addProduct = () => {
     if (newProduct.trim()) {
+      console.log('[AdminCompanyForm] Adding product:', newProduct.trim());
       setProducts([...products, newProduct.trim()]);
       setNewProduct("");
     }
@@ -60,16 +102,19 @@ export function AdminCompanyForm() {
 
   const addService = () => {
     if (newService.trim()) {
+      console.log('[AdminCompanyForm] Adding service:', newService.trim());
       setServices([...services, newService.trim()]);
       setNewService("");
     }
   };
 
   const removeProduct = (index: number) => {
+    console.log('[AdminCompanyForm] Removing product at index:', index);
     setProducts(products.filter((_, i) => i !== index));
   };
 
   const removeService = (index: number) => {
+    console.log('[AdminCompanyForm] Removing service at index:', index);
     setServices(services.filter((_, i) => i !== index));
   };
 
