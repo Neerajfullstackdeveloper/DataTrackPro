@@ -82,22 +82,22 @@ export function AdminCompanyForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Company Name</Label>
-            <Input id="name" name="name" required />
+            <Input id="name" name="name"  />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="address">Address</Label>
-            <Textarea id="address" name="address" required />
+            <Textarea id="address" name="address"  />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" required />
+            <Input id="email" name="email" type="email"  />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="phone">Contact Number</Label>
-            <Input id="phone" name="phone" required />
+            <Input id="phone" name="phone"  />
           </div>
 
           <div className="space-y-2">
