@@ -28,7 +28,6 @@ export const companies = pgTable("companies", {
   notes: text("notes"),
   status: text("status").notNull().default("active"), // active, inactive
   assignedToUserId: integer("assigned_to_user_id"),
-  assignedAt: timestamp("assigned_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

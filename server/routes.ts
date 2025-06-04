@@ -766,19 +766,10 @@ export function registerRoutes(app: Express): Server {
 
   // Admin company management
   app.post("/api/admin/companies", async (req, res) => {
-    console.log('[/api/admin/companies] Received request:', {
-      body: req.body,
-      user: req.user ? { id: req.user.id, role: req.user.role } : 'Not authenticated'
-    });
-
-    if (!req.isAuthenticated()) {
-      console.log('[/api/admin/companies] Request rejected: User not authenticated');
-      return res.sendStatus(401);
-    }
+    if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
       const { name, address, email, phone, products, services } = req.body;
-      console.log('[/api/admin/companies] Parsed request data:', { name, address, email, phone, products, services });
       
       // Create company without assigning to any user by default
       const company = await storage.createCompany({
@@ -793,14 +784,10 @@ export function registerRoutes(app: Express): Server {
         assignedToUserId: undefined, // Use undefined instead of null
       });
       
-      console.log('[/api/admin/companies] Company created successfully:', company);
       res.status(201).json(company);
     } catch (error) {
-      console.error('[/api/admin/companies] Company creation error:', error);
-      res.status(400).json({ 
-        message: "Invalid company data",
-        error: error instanceof Error ? error.message : String(error)
-      });
+      console.error('Company creation error:', error);
+      res.status(400).json({ message: "Invalid company data" });
     }
   });
 

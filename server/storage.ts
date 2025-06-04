@@ -74,8 +74,6 @@ export interface IStorage {
   getFacebookDataRequestById(id: number): Promise<FacebookDataRequest | undefined>;
 
   sessionStore: any;
-
-  cleanupExpiredAssignments(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -188,19 +186,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCompaniesByUser(userId: number): Promise<Company[]> {
-    // Get the date 24 hours ago
-    const oneDayAgo = new Date();
-    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
-
     return await db
       .select()
       .from(companies)
-      .where(
-        and(
-          eq(companies.assignedToUserId, userId),
-          sql`${companies.assignedAt} > ${oneDayAgo}`
-        )
-      )
+      .where(eq(companies.assignedToUserId, userId))
       .orderBy(desc(companies.updatedAt));
   }
 
@@ -365,13 +354,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCompanyStatus(companyId: number, category: string): Promise<void> {
-    // Only remove assignment since category is determined by comments
+    // Get all comments for this company
+    const companyComments = await db
+      .select()
+      .from(comments)
+      .where(eq(comments.companyId, companyId))
+      .orderBy(desc(comments.createdAt));
+
+    // If there are no comments, do nothing
+    if (companyComments.length === 0) {
+      return;
+    }
+
+    // Get the most recent comment's category
+    const latestCategory = companyComments[0].category;
+
+    // Update company timestamp
     await db
       .update(companies)
-      .set({ 
-        assignedToUserId: null,
-        updatedAt: new Date() 
-      })
+      .set({ updatedAt: new Date() })
       .where(eq(companies.id, companyId));
   }
 
@@ -431,8 +432,7 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(companies)
       .set({ 
-        assignedToUserId: userId,
-        assignedAt: new Date(),
+        assignedToUserId: userId, 
         updatedAt: new Date(),
         status: "active"
       })
@@ -533,27 +533,6 @@ export class DatabaseStorage implements IStorage {
       .from(companies)
       .where(isNull(companies.assignedToUserId))
       .limit(limit);
-  }
-
-  async cleanupExpiredAssignments(): Promise<void> {
-    // Get the date 24 hours ago
-    const oneDayAgo = new Date();
-    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
-
-    // Unassign companies that were assigned more than 24 hours ago
-    await db
-      .update(companies)
-      .set({ 
-        assignedToUserId: null,
-        assignedAt: null,
-        updatedAt: new Date()
-      })
-      .where(
-        and(
-          sql`${companies.assignedAt} <= ${oneDayAgo}`,
-          isNull(companies.assignedToUserId).not()
-        )
-      );
   }
 }
 
