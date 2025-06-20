@@ -506,7 +506,7 @@ export default function Dashboard() {
                               </div>
                             ) : selectedCompany?.id === company.id && comments.length > 0 ? (
                               <div className="space-y-3 max-h-48 overflow-y-auto">
-                                {comments.slice(0, 2).map((comment) => (
+                                {comments.map((comment) => (
                                   <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
                                     <div className="flex items-center justify-between mb-1">
                                       <span className="text-sm font-medium text-gray-900">
@@ -522,16 +522,6 @@ export default function Dashboard() {
                                     </Badge>
                                   </div>
                                 ))}
-                                {comments.length > 2 && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="w-full text-primary"
-                                    onClick={() => setViewCommentsCompany(company)}
-                                  >
-                                    Show {comments.length - 2} more comments
-                                  </Button>
-                                )}
                               </div>
                             ) : (
                               <p className="text-sm text-gray-500 text-center py-2">
