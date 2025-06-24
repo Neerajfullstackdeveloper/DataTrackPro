@@ -19,7 +19,7 @@ import {
   type InsertFacebookDataRequest
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, isNull } from "drizzle-orm";
+import { eq, and, desc, sql, isNull, inArray, getTableColumns } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -50,8 +50,7 @@ export interface IStorage {
   getCommentsByCompany(companyId: number): Promise<Comment[]>;
   getCommentsByUser(userId: number): Promise<Comment[]>;
   getTodaysCommentsByUser(userId: number): Promise<Comment[]>;
-  createComment(comment: InsertComment & { userId: number }): Promise<Comment>;
-  updateCompanyStatus(companyId: number, category: string): Promise<void>;
+  createComment(comment: InsertComment & { userId: number }): Promise<{ comment: Comment, updatedCompany: Company }>;
 
   // Data request management
   getDataRequestsByUser(userId: number): Promise<DataRequest[]>;
@@ -73,11 +72,12 @@ export interface IStorage {
   updateFacebookDataRequestStatus(id: number, status: string, approvedBy?: number): Promise<FacebookDataRequest | undefined>;
   getFacebookDataRequestById(id: number): Promise<FacebookDataRequest | undefined>;
 
-  sessionStore: any;
+  sessionStore: session.Store;
 }
 
+
 export class DatabaseStorage implements IStorage {
-  sessionStore: any;
+  sessionStore: session.Store;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
@@ -182,15 +182,35 @@ export class DatabaseStorage implements IStorage {
 
   // Company management
   async getAllCompanies(): Promise<Company[]> {
-    return await db.select().from(companies).orderBy(desc(companies.updatedAt));
+    const result = await db
+      .select({
+        ...getTableColumns(companies),
+        assignedToUser: users,
+      })
+      .from(companies)
+      .leftJoin(users, eq(companies.assignedToUserId, users.id))
+      .orderBy(desc(companies.updatedAt));
+    
+    return result as Company[];
   }
 
   async getCompaniesByUser(userId: number): Promise<Company[]> {
-    return await db
-      .select()
+    const result = await db
+      .select({
+        ...getTableColumns(companies),
+        assignedToUser: users,
+      })
       .from(companies)
-      .where(eq(companies.assignedToUserId, userId))
+      .leftJoin(users, eq(companies.assignedToUserId, users.id))
+      .where(
+        and(
+          eq(companies.assignedToUserId, userId),
+          eq(companies.category, "assigned")
+        )
+      )
       .orderBy(desc(companies.updatedAt));
+
+    return result as Company[];
   }
 
   async getCompany(id: number): Promise<Company | undefined> {
@@ -226,57 +246,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCompaniesByCategory(category: string, userId?: number): Promise<Company[]> {
-    // Get companies that have a comment in the specified category
-    const query = db
-      .select({
-        id: companies.id,
-        name: companies.name,
-        industry: companies.industry,
-        email: companies.email,
-        phone: companies.phone,
-        address: companies.address,
-        website: companies.website,
-        companySize: companies.companySize,
-        notes: companies.notes,
-        status: companies.status,
-        assignedToUserId: companies.assignedToUserId,
-        createdAt: companies.createdAt,
-        updatedAt: companies.updatedAt,
-      })
-      .from(companies)
-      .innerJoin(
-        comments,
-        and(
-          eq(companies.id, comments.companyId),
-          eq(comments.category, category)
-        )
-      )
-      .where(userId ? eq(companies.assignedToUserId, userId) : undefined)
-      .groupBy(companies.id)
-      .orderBy(desc(companies.updatedAt));
+    const filters = [eq(companies.category, category)];
+    if (userId) {
+      filters.push(eq(companies.assignedToUserId, userId));
+    }
 
-    return await query;
+    const result = await db.select({
+      ...getTableColumns(companies),
+      assignedToUser: users,
+    })
+    .from(companies)
+    .leftJoin(users, eq(companies.assignedToUserId, users.id))
+    .where(and(...filters))
+    .orderBy(desc(companies.updatedAt));
+
+    return result as Company[];
   }
 
   // Comment management
   async getCommentsByCompany(companyId: number): Promise<Comment[]> {
     return await db
-      .select({
-        id: comments.id,
-        companyId: comments.companyId,
-        userId: comments.userId,
-        content: comments.content,
-        category: comments.category,
-        commentDate: comments.commentDate,
-        createdAt: comments.createdAt,
-        user: {
-          id: users.id,
-          fullName: users.fullName,
-          role: users.role
-        }
-      })
+      .select()
       .from(comments)
-      .leftJoin(users, eq(comments.userId, users.id))
       .where(eq(comments.companyId, companyId))
       .orderBy(desc(comments.createdAt));
   }
@@ -292,8 +283,6 @@ export class DatabaseStorage implements IStorage {
   async getTodaysCommentsByUser(userId: number): Promise<Comment[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
 
     return await db
       .select()
@@ -301,79 +290,39 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(comments.userId, userId),
-          sql`${comments.commentDate} >= ${today}`,
-          sql`${comments.commentDate} < ${tomorrow}`
+          sql`DATE(${comments.createdAt}) = DATE(${today})`
         )
       )
-      .orderBy(desc(comments.commentDate));
+      .orderBy(desc(comments.createdAt));
   }
 
-  async createComment(comment: InsertComment & { userId: number }): Promise<Comment> {
-    // First check if this company already has a comment in this category
-    const existingComment = await db
-      .select()
-      .from(comments)
-      .where(
-        and(
-          eq(comments.companyId, comment.companyId),
-          eq(comments.category, comment.category)
-        )
-      )
-      .limit(1);
-
-    let newComment;
-    if (existingComment.length > 0) {
-      // If comment exists, update it instead of creating new one
-      [newComment] = await db
-        .update(comments)
-        .set({
-          content: comment.content,
-          commentDate: new Date(comment.commentDate),
-          updatedAt: new Date()
-        })
-        .where(eq(comments.id, existingComment[0].id))
-        .returning();
-    } else {
-      // Create new comment if none exists in this category
-      [newComment] = await db
+  async createComment(
+    commentData: InsertComment & { userId: number }
+  ): Promise<{ comment: Comment, updatedCompany: Company }> {
+    return db.transaction(async (tx) => {
+      // Step 1: Create the new comment
+      const [comment] = await tx
         .insert(comments)
         .values({
-          ...comment,
-          commentDate: new Date(comment.commentDate)
+          ...commentData,
+          commentDate: new Date(commentData.commentDate),
         })
         .returning();
-    }
 
-    // Update company timestamp
-    await db
-      .update(companies)
-      .set({ updatedAt: new Date() })
-      .where(eq(companies.id, comment.companyId));
+      // Step 2: Update the company's category
+      const [updatedCompany] = await tx
+        .update(companies)
+        .set({ category: commentData.category, updatedAt: new Date() })
+        .where(eq(companies.id, commentData.companyId))
+        .returning();
 
-    return newComment;
-  }
+      if (!updatedCompany) {
+        tx.rollback();
+        throw new Error("Company not found, comment creation rolled back.");
+      }
 
-  async updateCompanyStatus(companyId: number, category: string): Promise<void> {
-    // Get all comments for this company
-    const companyComments = await db
-      .select()
-      .from(comments)
-      .where(eq(comments.companyId, companyId))
-      .orderBy(desc(comments.createdAt));
-
-    // If there are no comments, do nothing
-    if (companyComments.length === 0) {
-      return;
-    }
-
-    // Get the most recent comment's category
-    const latestCategory = companyComments[0].category;
-
-    // Update company timestamp
-    await db
-      .update(companies)
-      .set({ updatedAt: new Date() })
-      .where(eq(companies.id, companyId));
+      return { comment, updatedCompany };
+    });
   }
 
   // Data request management
@@ -402,71 +351,69 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDataRequestStatus(id: number, status: string, approvedBy?: number): Promise<DataRequest | undefined> {
-    const [request] = await db
+    const [updatedRequest] = await db
       .update(dataRequests)
-      .set({
-        status,
+      .set({ 
+        status, 
         approvedBy,
         updatedAt: new Date(),
       })
       .where(eq(dataRequests.id, id))
       .returning();
-
-    return request || undefined;
+      
+    return updatedRequest || undefined;
   }
 
   async assignCompaniesToUser(userId: number, count: number): Promise<Company[]> {
-    // Get unassigned companies
-    const unassignedCompanies = await db
-      .select()
-      .from(companies)
-      .where(isNull(companies.assignedToUserId))
-      .limit(count);
+    try {
+      const unassignedCompanies = await this.getUnassignedCompanies(count);
 
-    if (unassignedCompanies.length === 0) {
-      return [];
+      if (unassignedCompanies.length === 0) {
+        return [];
+      }
+
+      const companyIds = unassignedCompanies.map(c => c.id);
+
+      await db
+        .update(companies)
+        .set({ 
+          assignedToUserId: userId,
+          updatedAt: new Date()
+        })
+        .where(inArray(companies.id, companyIds));
+
+      const updatedCompanies = await db
+        .select()
+        .from(companies)
+        .where(inArray(companies.id, companyIds));
+
+      return updatedCompanies;
+    } catch (error) {
+      console.error('Error assigning companies:', error);
+      throw error;
     }
-
-    // Assign them to the user
-    const companyIds = unassignedCompanies.map(c => c.id);
-    await db
-      .update(companies)
-      .set({ 
-        assignedToUserId: userId, 
-        updatedAt: new Date(),
-        status: "active"
-      })
-      .where(sql`${companies.id} IN (${companyIds.join(',')})`);
-
-    return unassignedCompanies;
   }
 
   // Holiday management
   async getAllHolidays(): Promise<Holiday[]> {
-    return await db
-      .select()
-      .from(holidays)
-      .orderBy(holidays.date);
+    return await db.select().from(holidays).orderBy(desc(holidays.date));
   }
 
   async createHoliday(holiday: InsertHoliday): Promise<Holiday> {
     const [newHoliday] = await db
       .insert(holidays)
-      .values({
-        ...holiday,
-        date: holiday.date instanceof Date ? holiday.date : new Date(holiday.date)
-      })
+      .values(holiday)
       .returning();
     return newHoliday;
   }
 
   async updateHoliday(id: number, updates: Partial<InsertHoliday>): Promise<Holiday | undefined> {
-    const [holiday] = await db
+    const [updatedHoliday] = await db
       .update(holidays)
       .set(updates)
       .where(eq(holidays.id, id))
       .returning();
-    return holiday || undefined;
+    return updatedHoliday || undefined;
   }
 
   async deleteHoliday(id: number): Promise<void> {
@@ -499,31 +446,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateFacebookDataRequestStatus(id: number, status: string, approvedBy?: number): Promise<FacebookDataRequest | undefined> {
-    const [request] = await db
+    const [updatedRequest] = await db
       .update(facebookDataRequests)
-      .set({
-        status,
+      .set({ 
+        status, 
         approvedBy,
         updatedAt: new Date(),
       })
       .where(eq(facebookDataRequests.id, id))
       .returning();
-    return request || undefined;
+      
+    return updatedRequest || undefined;
   }
 
   async getFacebookDataRequestById(id: number): Promise<FacebookDataRequest | undefined> {
-    const [request] = await db
-      .select()
-      .from(facebookDataRequests)
-      .where(eq(facebookDataRequests.id, id));
+    const [request] = await db.select().from(facebookDataRequests).where(eq(facebookDataRequests.id, id));
     return request || undefined;
   }
 
   async getDataRequestById(id: number): Promise<DataRequest | undefined> {
-    const [request] = await db
-      .select()
-      .from(dataRequests)
-      .where(eq(dataRequests.id, id));
+    const [request] = await db.select().from(dataRequests).where(eq(dataRequests.id, id));
     return request || undefined;
   }
 
@@ -537,3 +479,20 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+export async function assignCompanyToUser(companyId: number, userId: number) {
+  const [updatedCompany] = await db
+    .update(companies)
+    .set({ assignedToUserId: userId, updatedAt: new Date() })
+    .where(eq(companies.id, companyId))
+    .returning();
+  return updatedCompany;
+}
+
+export async function getCompaniesForUser(userId: number) {
+  const userCompanies = await db
+    .select()
+    .from(companies)
+    .where(eq(companies.assignedToUserId, userId));
+  return userCompanies;
+}

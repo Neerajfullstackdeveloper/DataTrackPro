@@ -2,9 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertCompanySchema, insertCommentSchema, insertDataRequestSchema, insertHolidaySchema, insertFacebookDataRequestSchema, insertUserSchema, dataRequests, companies, facebookData, facebookDataRequests } from "@shared/schema";
+import { insertCompanySchema, insertCommentSchema, insertDataRequestSchema, insertHolidaySchema, insertFacebookDataRequestSchema, insertUserSchema, dataRequests, companies, facebookData, facebookDataRequests, comments } from "@shared/schema";
 import * as z from "zod";
-import { eq, isNull, sql, inArray, and, desc } from "drizzle-orm";
+import { eq, isNull, sql, inArray, and, desc, getTableColumns } from "drizzle-orm";
 import { db } from "./db";
 
 export function registerRoutes(app: Express): Server {
@@ -27,25 +27,27 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
-      // Get companies created today by the current user
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
-      const todayCompanies = await db
-        .select()
+
+      const todaysCompanies = await db
+        .selectDistinctOn([companies.id], {
+          ...getTableColumns(companies),
+        })
         .from(companies)
+        .innerJoin(comments, eq(companies.id, comments.companyId))
         .where(
           and(
-            eq(companies.assignedToUserId, req.user!.id),
-            sql`DATE(${companies.createdAt}) = DATE(${today})`
+            eq(comments.userId, req.user!.id),
+            sql`DATE(${comments.commentDate}) = DATE(${today})`
           )
         )
-        .orderBy(desc(companies.createdAt));
-      
-      res.json(todayCompanies);
+        .orderBy(companies.id, desc(comments.commentDate));
+
+      res.json(todaysCompanies);
     } catch (error) {
       console.error('Failed to fetch today\'s companies:', error);
-      res.status(500).json({ message: "Failed to fetch today's companies" });
+      res.status(500).json({ message: "Failed to fetch today\'s companies" });
     }
   });
 
@@ -85,10 +87,9 @@ export function registerRoutes(app: Express): Server {
     
     try {
       const validatedData = insertCompanySchema.parse(req.body);
-      // Create company without assigning to any user by default
       const company = await storage.createCompany({
         ...validatedData,
-        assignedToUserId: undefined, // Use undefined instead of null
+        assignedToUserId: req.user!.id,
       });
       res.status(201).json(company);
     } catch (error) {
@@ -221,35 +222,14 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
-      console.log('Received data request:', req.body);
-      
-      // Validate the data
       const validatedData = insertDataRequestSchema.parse(req.body);
-      console.log('Validated data request:', validatedData);
-      
-      // Create the request
       const request = await storage.createDataRequest({
         ...validatedData,
         userId: req.user!.id,
       });
-      
-      console.log('Created data request:', request);
       res.status(201).json(request);
     } catch (error) {
-      console.error('Data request creation error:', error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          message: "Invalid request data", 
-          errors: error.errors.map(e => ({
-            field: e.path.join('.'),
-            message: e.message
-          }))
-        });
-      }
-      res.status(400).json({ 
-        message: "Invalid request data", 
-        error: error instanceof Error ? error.message : String(error)
-      });
+      res.status(400).json({ message: "Invalid request data" });
     }
   });
 
@@ -771,7 +751,7 @@ export function registerRoutes(app: Express): Server {
     try {
       const { name, address, email, phone, products, services } = req.body;
       
-      // Create company without assigning to any user by default
+      // Create company with products and services in notes
       const company = await storage.createCompany({
         name,
         industry: "General", // Default industry
@@ -781,7 +761,7 @@ export function registerRoutes(app: Express): Server {
         website: "", // Optional
         companySize: "Medium", // Default size
         notes: `Products: ${products.join(", ")}\nServices: ${services.join(", ")}`,
-        assignedToUserId: undefined, // Use undefined instead of null
+        assignedToUserId: req.user!.id, // Assign to the user who created it
       });
       
       res.status(201).json(company);
@@ -846,47 +826,6 @@ export function registerRoutes(app: Express): Server {
         error: "Failed to fetch Facebook data",
         details: error instanceof Error ? error.message : "Unknown error"
       });
-    }
-  });
-
-  app.post("/api/companies/:id/category", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    try {
-      const { id } = req.params;
-      const { category } = req.body;
-      
-      // Only main admin can change category of assigned companies
-      const company = await storage.getCompany(parseInt(id));
-      if (!company) {
-        return res.status(404).json({ message: "Company not found" });
-      }
-      
-      if (company.assignedToUserId && req.user!.role !== "admin") {
-        return res.status(403).json({ message: "Only main admin can change category of assigned companies" });
-      }
-      
-      await storage.updateCompanyStatus(parseInt(id), category);
-      res.sendStatus(200);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to update company category" });
-    }
-  });
-
-  // Admin company management
-  app.get("/api/users", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    // Only admins, managers, and TLs can access user list
-    if (!["admin", "manager", "tl"].includes(req.user!.role)) {
-      return res.sendStatus(403);
-    }
-    
-    try {
-      const users = await storage.getAllUsers();
-      res.json(users);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
