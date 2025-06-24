@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Button } from "@/components/ui/button";
@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CommentModal } from "@/components/dashboard/comment-modal";
+import { ViewCommentsModal } from "@/components/dashboard/view-comments-modal";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Company, Holiday, DataRequest, Comment, Section } from "@shared/schema";
-import { Menu, Bell, User as UserIcon, Database, Calendar, Clock, Plus, Download, Loader2, LogOut, Users, Mail, Phone, Globe, MapPin, Flame, Building } from "lucide-react";
+import { Menu, Bell, User, Database, Calendar, Clock, Plus, Download, Loader2, LogOut, Users, Mail, Phone, Globe, MapPin, Flame, Building, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { AssignedCompanies } from "@/components/dashboard/assigned-companies";
 import { Label } from "@/components/ui/label";
@@ -25,11 +26,11 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [viewCommentsCompany, setViewCommentsCompany] = useState<Company | null>(null);
   const [activeSection, setActiveSection] = useState<Section>("allData");
   const [isLoading, setIsLoading] = useState(true);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
-  const [commentModalMode, setCommentModalMode] = useState<'add' | 'view'>('add');
   const [displayCount, setDisplayCount] = useState(12);
   const [requestData, setRequestData] = useState({
     requestType: "",
@@ -39,38 +40,61 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
 
   // Queries
-  const { data: allCompanies = [], isLoading: isLoadingAllCompanies } = useQuery<Company[]>({
-    queryKey: ["/api/companies"],
-  });
-
   const { data: myCompanies = [], isLoading: isLoadingMyCompanies } = useQuery<Company[]>({
     queryKey: ["/api/companies/my"],
-  });
-  
-  const { data: followUpCompanies = [], isLoading: isLoadingFollowUp } = useQuery<Company[]>({
-    queryKey: ["/api/companies/category/followup"],
+    refetchInterval: 5000, // Refetch every 5 seconds
   });
 
-  const { data: hotCompanies = [], isLoading: isLoadingHot } = useQuery<Company[]>({
-    queryKey: ["/api/companies/category/hot"],
-  });
-
-  const { data: blockCompanies = [], isLoading: isLoadingBlock } = useQuery<Company[]>({
-    queryKey: ["/api/companies/category/block"],
+  const { data: allCompanies = [], isLoading: isLoadingAllCompanies } = useQuery<Company[]>({
+    queryKey: ["/api/companies"],
+    refetchInterval: 5000, // Refetch every 5 seconds
   });
 
   const { data: holidays = [], isLoading: isLoadingHolidays } = useQuery<Holiday[]>({
     queryKey: ["/api/holidays"],
+    refetchInterval: 5000, // Refetch every 5 seconds
   });
 
   const { data: todayCompanies = [], isLoading: isLoadingTodayCompanies } = useQuery<Company[]>({
     queryKey: ["/api/companies/today"],
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
+  const { data: generalCompanies = [], isLoading: isLoadingGeneral } = useQuery<Company[]>({
+    queryKey: ["/api/companies/category/general"],
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
+  const { data: followUpCompanies = [], isLoading: isLoadingFollowUp } = useQuery<Company[]>({
+    queryKey: ["/api/companies/category/followup"],
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
+  const { data: hotCompanies = [], isLoading: isLoadingHot } = useQuery<Company[]>({
+    queryKey: ["/api/companies/category/hot"],
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
+  const { data: blockCompanies = [], isLoading: isLoadingBlock } = useQuery<Company[]>({
+    queryKey: ["/api/companies/category/block"],
+    refetchInterval: 5000, // Refetch every 5 seconds
   });
 
   // Query for data requests
   const { data: dataRequests = [], isLoading: isLoadingRequests } = useQuery<DataRequest[]>({
     queryKey: ["/api/data-requests"],
     enabled: activeSection === "requestData",
+  });
+
+  // Add query for comments
+  const { data: comments = [], isLoading: isLoadingComments } = useQuery<Comment[]>({
+    queryKey: ["/api/comments/company", selectedCompany?.id],
+    queryFn: async () => {
+      if (!selectedCompany) return [];
+      const response = await apiRequest("GET", `/api/comments/company/${selectedCompany.id}`);
+      return response.json();
+    },
+    enabled: !!selectedCompany,
   });
 
   // Mutations
@@ -91,7 +115,7 @@ export default function Dashboard() {
       
       return { previousRequests };
     },
-    onError: (err, newRequest, context) => {
+    onError: (err: Error, newRequest, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousRequests) {
         queryClient.setQueryData(["/api/data-requests"], context.previousRequests);
@@ -99,7 +123,7 @@ export default function Dashboard() {
       toast({ 
         title: "Failed to create request", 
         variant: "destructive",
-        description: "Please try again later."
+        description: err.message || "Please check your input and try again."
       });
     },
     onSuccess: (newRequest) => {
@@ -124,19 +148,19 @@ export default function Dashboard() {
       await queryClient.cancelQueries({ queryKey: ["/api/companies"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/my"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/today"] });
+      await queryClient.cancelQueries({ queryKey: ["/api/companies/category/general"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/category/followup"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/category/hot"] });
       await queryClient.cancelQueries({ queryKey: ["/api/companies/category/block"] });
-      await queryClient.cancelQueries({ queryKey: ["/api/companies/category/general"] });
       
       // Snapshot the previous values
       const previousCompanies = queryClient.getQueryData<Company[]>(["/api/companies"]);
       const previousMyCompanies = queryClient.getQueryData<Company[]>(["/api/companies/my"]);
       const previousTodayCompanies = queryClient.getQueryData<Company[]>(["/api/companies/today"]);
+      const previousGeneralCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/general"]);
       const previousFollowupCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/followup"]);
       const previousHotCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/hot"]);
       const previousBlockCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/block"]);
-      const previousGeneralCompanies = queryClient.getQueryData<Company[]>(["/api/companies/category/general"]);
       
       // Optimistically update all company lists
       const updateCompanyInList = (list: Company[] = []) => 
@@ -145,19 +169,19 @@ export default function Dashboard() {
       queryClient.setQueryData(["/api/companies"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/my"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/today"], updateCompanyInList);
+      queryClient.setQueryData(["/api/companies/category/general"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/followup"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/hot"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/block"], updateCompanyInList);
-      queryClient.setQueryData(["/api/companies/category/general"], updateCompanyInList);
       
       return { 
         previousCompanies,
         previousMyCompanies,
         previousTodayCompanies,
+        previousGeneralCompanies,
         previousFollowupCompanies,
         previousHotCompanies,
-        previousBlockCompanies,
-        previousGeneralCompanies
+        previousBlockCompanies
       };
     },
     onError: (err, variables, context) => {
@@ -166,10 +190,10 @@ export default function Dashboard() {
         queryClient.setQueryData(["/api/companies"], context.previousCompanies);
         queryClient.setQueryData(["/api/companies/my"], context.previousMyCompanies);
         queryClient.setQueryData(["/api/companies/today"], context.previousTodayCompanies);
+        queryClient.setQueryData(["/api/companies/category/general"], context.previousGeneralCompanies);
         queryClient.setQueryData(["/api/companies/category/followup"], context.previousFollowupCompanies);
         queryClient.setQueryData(["/api/companies/category/hot"], context.previousHotCompanies);
         queryClient.setQueryData(["/api/companies/category/block"], context.previousBlockCompanies);
-        queryClient.setQueryData(["/api/companies/category/general"], context.previousGeneralCompanies);
       }
       toast({ 
         title: "Failed to update company", 
@@ -185,6 +209,7 @@ export default function Dashboard() {
       queryClient.setQueryData(["/api/companies"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/my"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/today"], updateCompanyInList);
+      queryClient.setQueryData(["/api/companies/category/general"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/followup"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/hot"], updateCompanyInList);
       queryClient.setQueryData(["/api/companies/category/block"], updateCompanyInList);
@@ -321,6 +346,9 @@ export default function Dashboard() {
       case "todayData":
         prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/companies/today"] }));
         break;
+      case "general":
+        prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/companies/category/general"] }));
+        break;
       case "followUp":
         prefetchPromises.push(queryClient.prefetchQuery({ queryKey: ["/api/companies/category/followup"] }));
         break;
@@ -370,150 +398,157 @@ export default function Dashboard() {
     }
 
     switch (activeSection) {
-      // case "allData":
-      //   return (
-      //     <div>
-      //       <div className="mb-6">
-      //         <h2 className="text-2xl font-bold text-gray-900 mb-2">All Companies</h2>
-      //         <p className="text-gray-600">View and manage all company data</p>
-      //       </div>
-      //       {isLoadingAllCompanies ? (
-      //         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-      //           {[...Array(8)].map((_, i) => (
-      //             <Card key={i} className="animate-pulse">
-      //               <CardContent className="p-4 md:p-6">
-      //                 <div className="space-y-3">
-      //                   <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-      //                   <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-      //                 </div>
-      //               </CardContent>
-      //             </Card>
-      //           ))}
-      //         </div>
-      //       ) : (
-      //         <>
-      //           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-      //             {allCompanies.slice(0, displayCount).map((company) => (
-      //               <Card key={company.id} className="group hover:shadow-lg transition-all duration-200 ease-in-out border border-gray-200">
-      //                 <CardContent className="p-4 md:p-6">
-      //                   <div className="space-y-3">
-      //                     <div className="flex items-start justify-between">
-      //                       <div className="flex-1 min-w-0">
-      //                         <h4 className="font-medium text-gray-900 truncate group-hover:text-primary transition-colors">{company.name}</h4>
-      //                         <p className="text-sm text-gray-500">ID: {company.id}</p>
-      //                       </div>
-      //                       <div className="flex flex-col items-end gap-1 ml-4">
-      //                         <Badge variant="outline" className="capitalize whitespace-nowrap bg-gray-50">
-      //                           {company.industry}
-      //                         </Badge>
-      //                         {company.assignedToUserId && (
-      //                           <Badge variant="secondary" className="text-xs whitespace-nowrap">
-      //                             Assigned
-      //                           </Badge>
-      //                         )}
-      //                       </div>
-      //                     </div>
+      case "allData":
+        return (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">All Companies</h2>
+              <p className="text-gray-600">View and manage all company data</p>
+            </div>
+            {isLoadingMyCompanies ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
+                {[...Array(8)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="p-4 md:p-6">
+                      <div className="space-y-3">
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
+                  {myCompanies.slice(0, displayCount).map((company) => (
+                    <Card key={company.id} className="group hover:shadow-lg transition-all duration-200 ease-in-out border border-gray-200">
+                      <CardContent className="p-4 md:p-6">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-gray-900 truncate group-hover:text-primary transition-colors">{company.name}</h4>
+                              <p className="text-sm text-gray-500">ID: {company.id}</p>
+                            </div>
+                          </div>
 
-      //                     <div className="space-y-2">
-      //                       {company.companySize && (
-      //                         <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-      //                           <Users className="h-4 w-4 mr-2" />
-      //                           <span className="text-sm">{company.companySize}</span>
-      //                         </div>
-      //                       )}
-      //                       {company.email && (
-      //                         <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-      //                           <Mail className="h-4 w-4 mr-2" />
-      //                           <span className="text-sm truncate">{company.email}</span>
-      //                         </div>
-      //                       )}
-      //                       {company.phone && (
-      //                         <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-      //                           <Phone className="h-4 w-4 mr-2" />
-      //                           <span className="text-sm">{company.phone}</span>
-      //                         </div>
-      //                       )}
-      //                       {company.website && (
-      //                         <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-      //                           <Globe className="h-4 w-4 mr-2" />
-      //                           <span className="text-sm truncate">{company.website}</span>
-      //                         </div>
-      //                       )}
-      //                     </div>
+                          <div className="space-y-2">
+                            {company.companySize && (
+                              <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+                                <Users className="h-4 w-4 mr-2" />
+                                <span className="text-sm">{company.companySize}</span>
+                              </div>
+                            )}
+                            {company.email && (
+                              <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+                                <Mail className="h-4 w-4 mr-2" />
+                                <span className="text-sm truncate">{company.email}</span>
+                              </div>
+                            )}
+                            {company.phone && (
+                              <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+                                <Phone className="h-4 w-4 mr-2" />
+                                <span className="text-sm">{company.phone}</span>
+                              </div>
+                            )}
+                            {company.website && (
+                              <div className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+                                <Globe className="h-4 w-4 mr-2" />
+                                <span className="text-sm truncate">{company.website}</span>
+                              </div>
+                            )}
+                          </div>
 
-      //                     {company.address && (
-      //                       <div className="flex items-start text-sm text-gray-600 hover:text-gray-900 transition-colors">
-      //                         <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-      //                         <span className="line-clamp-2">{company.address}</span>
-      //                       </div>
-      //                     )}
+                          {company.address && (
+                            <div className="flex items-start text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                              <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                              <span className="line-clamp-2">{company.address}</span>
+                            </div>
+                          )}
 
-      //                     {company.notes && (
-      //                       <div className="mt-2 text-sm text-gray-600">
-      //                         <p className="font-medium mb-1">Notes:</p>
-      //                         <p className="whitespace-pre-line bg-gray-50 p-2 rounded line-clamp-3">{company.notes}</p>
-      //                       </div>
-      //                     )}
+                          {company.notes && (
+                            <div className="mt-2 text-sm text-gray-600">
+                              <p className="font-medium mb-1">Notes:</p>
+                              <p className="whitespace-pre-line bg-gray-50 p-2 rounded line-clamp-3">{company.notes}</p>
+                            </div>
+                          )}
 
-      //                     <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-      //                       <div className="flex items-center">
-      //                         <Calendar className="h-3 w-3 mr-1" />
-      //                         {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
-      //                       </div>
-      //                       <div className="flex items-center">
-      //                         <Clock className="h-3 w-3 mr-1" />
-      //                         {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-      //                       </div>
-      //                     </div>
+                          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                            <div className="flex items-center">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                            <div className="flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                          </div>
 
-      //                     <div className="mt-4">
-      //                       <div className="pt-2 border-t border-gray-100 flex items-center space-x-2">
-      //                         <Button
-      //                           variant="outline"
-      //                           size="sm"
-      //                           className="w-full"
-      //                           onClick={() => {
-      //                             setSelectedCompany(company);
-      //                             setCommentModalMode('add');
-      //                             setIsCommentModalOpen(true);
-      //                           }}
-      //                         >
-      //                           Add Comment
-      //                         </Button>
-      //                         <Button
-      //                           variant="secondary"
-      //                           size="sm"
-      //                           className="w-full"
-      //                           onClick={() => {
-      //                             setSelectedCompany(company);
-      //                             setCommentModalMode('view');
-      //                             setIsCommentModalOpen(true);
-      //                           }}
-      //                         >
-      //                           Show Comments
-      //                         </Button>
-      //                       </div>
-      //                     </div>
-      //                   </div>
-      //                 </CardContent>
-      //               </Card>
-      //             ))}
-      //           </div>
-      //           {allCompanies.length > displayCount && (
-      //             <div className="mt-6 text-center">
-      //               <Button
-      //                 variant="outline"
-      //                 onClick={handleLoadMore}
-      //                 className="px-6 hover:bg-primary hover:text-white transition-colors"
-      //               >
-      //                 Load More
-      //               </Button>
-      //             </div>
-      //           )}
-      //         </>
-      //       )}
-      //     </div>
-      //   );
+                          <div className="pt-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setViewCommentsCompany(company)}
+                                >
+                                  Show Comments
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mb-2">
+                              
+                            </div>
+                            
+                            {selectedCompany?.id === company.id && isLoadingComments ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            ) : selectedCompany?.id === company.id && comments.length > 0 ? (
+                              <div className="space-y-3 max-h-48 overflow-y-auto">
+                                {comments.map((comment) => (
+                                  <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {comment.user?.fullName || 'Unknown User'}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">{comment.content}</p>
+                                    <Badge variant="outline" className="mt-2 capitalize">
+                                      {comment.category}
+                                    </Badge>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 text-center py-2">
+                                No comments yet. Be the first to comment!
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                {allCompanies.length > displayCount && (
+                  <div className="mt-6 text-center">
+                    <Button
+                      variant="outline"
+                      onClick={handleLoadMore}
+                      className="px-6 hover:bg-primary hover:text-white transition-colors"
+                    >
+                      Load More
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
       case "todayData":
         return (
           <div>
@@ -560,34 +595,6 @@ export default function Dashboard() {
                             </div>
                           </div>
                         </div>
-                        <div className="mt-4">
-                          <div className="pt-2 border-t border-gray-100 flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedCompany(company);
-                                setCommentModalMode('add');
-                                setIsCommentModalOpen(true);
-                              }}
-                            >
-                              Add Comment
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedCompany(company);
-                                setCommentModalMode('view');
-                                setIsCommentModalOpen(true);
-                              }}
-                            >
-                              Show Comments
-                            </Button>
-                          </div>
-                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -606,13 +613,13 @@ export default function Dashboard() {
             {/* All My Companies Section */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">All My Companies</h3>
-              {isLoadingAllCompanies ? (
+              {isLoadingMyCompanies ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-              ) : allCompanies.length > 0 ? (
+              ) : myCompanies.length > 0 ? (
                 <div className="space-y-4">
-                  {allCompanies.map((company) => (
+                  {myCompanies.map((company) => (
                     <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between">
@@ -677,6 +684,133 @@ export default function Dashboard() {
             <FacebookRequestForm />
           </div>
         );
+      case "general":
+        return (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Follow-Up Companies</h2>
+              <p className="text-gray-600">View companies that need follow-up</p>
+            </div>
+            {isLoadingFollowUp ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : followUpCompanies.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...followUpCompanies]
+                  .sort((a, b) => {
+                    const aLatestComment = comments
+                      .filter(comment => comment.companyId === a.id)
+                      .sort((c1, c2) => new Date(c2.commentDate).getTime() - new Date(c1.commentDate).getTime())[0];
+                    const bLatestComment = comments
+                      .filter(comment => comment.companyId === b.id)
+                      .sort((c1, c2) => new Date(c2.commentDate).getTime() - new Date(c1.commentDate).getTime())[0];
+                    const aDate = aLatestComment ? new Date(aLatestComment.commentDate) : new Date(a.updatedAt || a.createdAt);
+                    const bDate = bLatestComment ? new Date(bLatestComment.commentDate) : new Date(b.updatedAt || b.createdAt);
+                    return bDate.getTime() - aDate.getTime();
+                  })
+                  .map((company) => (
+                    <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{company.name}</h4>
+                              <p className="text-sm text-gray-500">ID: {company.id}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge variant="outline" className="capitalize">
+                                {company.industry}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs">
+                                Needs Follow-up
+                              </Badge>
+                              {company.assignedToUserId && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Assigned
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            {company.companySize && (
+                              <div className="flex items-center text-gray-600">
+                                <Users className="h-4 w-4 mr-2" />
+                                {company.companySize}
+                              </div>
+                            )}
+                            {company.email && (
+                              <div className="flex items-center text-gray-600">
+                                <Mail className="h-4 w-4 mr-2" />
+                                {company.email}
+                              </div>
+                            )}
+                            {company.phone && (
+                              <div className="flex items-center text-gray-600">
+                                <Phone className="h-4 w-4 mr-2" />
+                                {company.phone}
+                              </div>
+                            )}
+                            {company.website && (
+                              <div className="flex items-center text-gray-600">
+                                <Globe className="h-4 w-4 mr-2" />
+                                {company.website}
+                              </div>
+                            )}
+                          </div>
+
+                          {company.address && (
+                            <div className="flex items-start text-sm text-gray-600">
+                              <MapPin className="h-4 w-4 mr-2 mt-0.5" />
+                              <span>{company.address}</span>
+                            </div>
+                          )}
+
+                          {company.notes && (
+                            <div className="mt-2 text-sm text-gray-600">
+                              <p className="font-medium mb-1">Notes:</p>
+                              <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                            <div className="flex items-center">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                            <div className="flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-gray-100">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full"
+                              onClick={() => setSelectedCompany(company)}
+                            >
+                              Add Comment
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Clock className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Follow-up Required</h3>
+                  <p className="text-gray-600">There are no companies that need follow-up at the moment.</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
       case "followUp":
         return (
           <div>
@@ -684,120 +818,157 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Follow-Up Companies</h2>
               <p className="text-gray-600">View companies that need follow-up</p>
             </div>
-            {isLoadingAllCompanies ? (
+            {isLoadingFollowUp ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : followUpCompanies.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {followUpCompanies.slice(0, displayCount).map((company) => (
-                  <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium text-gray-900">{company.name}</h4>
-                            <p className="text-sm text-gray-500">ID: {company.id}</p>
+                {[...followUpCompanies]
+                  .sort((a, b) => {
+                    const aLatestComment = comments
+                      .filter(comment => comment.companyId === a.id)
+                      .sort((c1, c2) => new Date(c2.commentDate).getTime() - new Date(c1.commentDate).getTime())[0];
+                    const bLatestComment = comments
+                      .filter(comment => comment.companyId === b.id)
+                      .sort((c1, c2) => new Date(c2.commentDate).getTime() - new Date(c1.commentDate).getTime())[0];
+                    const aDate = aLatestComment ? new Date(aLatestComment.commentDate) : new Date(a.updatedAt || a.createdAt);
+                    const bDate = bLatestComment ? new Date(bLatestComment.commentDate) : new Date(b.updatedAt || b.createdAt);
+                    return bDate.getTime() - aDate.getTime();
+                  })
+                  .map((company) => (
+                    <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{company.name}</h4>
+                              <p className="text-sm text-gray-500">ID: {company.id}</p>
+                            </div>
+                            
                           </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant="outline" className="capitalize">
-                              {company.industry}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              Needs Follow-up
-                            </Badge>
-                            {company.assignedToUserId && (
-                              <Badge variant="secondary" className="text-xs">
-                                Assigned
-                              </Badge>
+
+                          <div className="space-y-2">
+                            {company.companySize && (
+                              <div className="flex items-center text-gray-600">
+                                <Users className="h-4 w-4 mr-2" />
+                                {company.companySize}
+                              </div>
+                            )}
+                            {company.email && (
+                              <div className="flex items-center text-gray-600">
+                                <Mail className="h-4 w-4 mr-2" />
+                                {company.email}
+                              </div>
+                            )}
+                            {company.phone && (
+                              <div className="flex items-center text-gray-600">
+                                <Phone className="h-4 w-4 mr-2" />
+                                {company.phone}
+                              </div>
+                            )}
+                            {company.website && (
+                              <div className="flex items-center text-gray-600">
+                                <Globe className="h-4 w-4 mr-2" />
+                                {company.website}
+                              </div>
                             )}
                           </div>
-                        </div>
 
-                        <div className="space-y-2">
-                          {company.companySize && (
-                            <div className="flex items-center text-gray-600">
-                              <Users className="h-4 w-4 mr-2" />
-                              {company.companySize}
+                          {company.address && (
+                            <div className="flex items-start text-sm text-gray-600">
+                              <MapPin className="h-4 w-4 mr-2 mt-0.5" />
+                              <span>{company.address}</span>
                             </div>
                           )}
-                          {company.email && (
-                            <div className="flex items-center text-gray-600">
-                              <Mail className="h-4 w-4 mr-2" />
-                              {company.email}
+
+                          {company.notes && (
+                            <div className="mt-2 text-sm text-gray-600">
+                              <p className="font-medium mb-1">Notes:</p>
+                              <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
                             </div>
                           )}
-                          {company.phone && (
-                            <div className="flex items-center text-gray-600">
-                              <Phone className="h-4 w-4 mr-2" />
-                              {company.phone}
+
+                          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                            <div className="flex items-center">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
                             </div>
-                          )}
-                          {company.website && (
-                            <div className="flex items-center text-gray-600">
-                              <Globe className="h-4 w-4 mr-2" />
-                              {company.website}
+                            <div className="flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
                             </div>
-                          )}
+                          </div>
+                          
+                          <div className="pt-2 border-t border-gray-100">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setViewCommentsCompany(company)}
+                                  >
+                                    Show Comments
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex gap-2">
+                                 
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSelectedCompany(company)}
+                                    
+                                  >
+                                    Add Comment
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              {selectedCompany?.id === company.id && isLoadingComments ? (
+                                <div className="flex items-center justify-center py-4">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                </div>
+                              ) : selectedCompany?.id === company.id && comments.length > 0 ? (
+                                <div className="space-y-3 max-h-48 overflow-y-auto">
+                                  {comments.slice(0, 2).map((comment) => (
+                                    <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {comment.user?.fullName || 'Unknown User'}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                          {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm text-gray-600">{comment.content}</p>
+                                      <Badge variant="outline" className="mt-2 capitalize">
+                                        {comment.category}
+                                      </Badge>
+                                    </div>
+                                  ))}
+                                  {comments.length > 2 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="w-full text-primary"
+                                      onClick={() => setViewCommentsCompany(company)}
+                                    >
+                                      Show {comments.length - 2} more comments
+                                    </Button>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500 text-center py-2">
+                                  No comments yet. Be the first to comment!
+                                </p>
+                              )}
+                            </div>
                         </div>
-
-                        {company.address && (
-                          <div className="flex items-start text-sm text-gray-600">
-                            <MapPin className="h-4 w-4 mr-2 mt-0.5" />
-                            <span>{company.address}</span>
-                          </div>
-                        )}
-
-                        {company.notes && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                          <div className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                          <div className="flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                        </div>
-
-                        <div className="mt-4">
-                          <div className="pt-2 border-t border-gray-100 flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedCompany(company);
-                                setCommentModalMode('add');
-                                setIsCommentModalOpen(true);
-                              }}
-                            >
-                              Add Comment
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedCompany(company);
-                                setCommentModalMode('view');
-                                setIsCommentModalOpen(true);
-                              }}
-                            >
-                              Show Comments
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
               </div>
             ) : (
               <Card>
@@ -817,120 +988,159 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Hot Data</h2>
               <p className="text-gray-600">View high-priority companies</p>
             </div>
-            {isLoadingAllCompanies ? (
+            {isLoadingHot ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : hotCompanies.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {hotCompanies.slice(0, displayCount).map((company) => (
-                  <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium text-gray-900">{company.name}</h4>
-                            <p className="text-sm text-gray-500">ID: {company.id}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant="outline" className="capitalize">
-                              {company.industry}
-                            </Badge>
-                            <Badge variant="destructive" className="text-xs">
-                              Hot Data
-                            </Badge>
-                            {company.assignedToUserId && (
-                              <Badge variant="secondary" className="text-xs">
-                                Assigned
+                {[...hotCompanies]
+                  .sort((a, b) => {
+                    const aLatestComment = comments
+                      .filter(comment => comment.companyId === a.id)
+                      .sort((c1, c2) => new Date(c2.commentDate).getTime() - new Date(c1.commentDate).getTime())[0];
+                    const bLatestComment = comments
+                      .filter(comment => comment.companyId === b.id)
+                      .sort((c1, c2) => new Date(c2.commentDate).getTime() - new Date(c1.commentDate).getTime())[0];
+                    const aDate = aLatestComment ? new Date(aLatestComment.commentDate) : new Date(a.updatedAt || a.createdAt);
+                    const bDate = bLatestComment ? new Date(bLatestComment.commentDate) : new Date(b.updatedAt || b.createdAt);
+                    return bDate.getTime() - aDate.getTime();
+                  })
+                  .map((company) => (
+                    <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{company.name}</h4>
+                              <p className="text-sm text-gray-500">ID: {company.id}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge variant="outline" className="capitalize">
+                                {company.industry}
                               </Badge>
+                              <Badge variant="destructive" className="text-xs">
+                                Hot Data
+                              </Badge>
+                              {company.assignedToUserId && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Assigned
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            {company.companySize && (
+                              <div className="flex items-center text-gray-600">
+                                <Users className="h-4 w-4 mr-2" />
+                                {company.companySize}
+                              </div>
+                            )}
+                            {company.email && (
+                              <div className="flex items-center text-gray-600">
+                                <Mail className="h-4 w-4 mr-2" />
+                                {company.email}
+                              </div>
+                            )}
+                            {company.phone && (
+                              <div className="flex items-center text-gray-600">
+                                <Phone className="h-4 w-4 mr-2" />
+                                {company.phone}
+                              </div>
+                            )}
+                            {company.website && (
+                              <div className="flex items-center text-gray-600">
+                                <Globe className="h-4 w-4 mr-2" />
+                                {company.website}
+                              </div>
+                            )}
+                          </div>
+
+                          {company.address && (
+                            <div className="flex items-start text-sm text-gray-600">
+                              <MapPin className="h-4 w-4 mr-2 mt-0.5" />
+                              <span>{company.address}</span>
+                            </div>
+                          )}
+
+                          {company.notes && (
+                            <div className="mt-2 text-sm text-gray-600">
+                              <p className="font-medium mb-1">Notes:</p>
+                              <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                            <div className="flex items-center">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setViewCommentsCompany(company)}
+                                >
+                                  Show Comments
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSelectedCompany(company)}
+                                >
+                                  Add Comment
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {selectedCompany?.id === company.id && isLoadingComments ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            ) : selectedCompany?.id === company.id && comments.length > 0 ? (
+                              <div className="space-y-3 max-h-48 overflow-y-auto">
+                                {comments.slice(0, 2).map((comment) => (
+                                  <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {comment.user?.fullName || 'Unknown User'}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">{comment.content}</p>
+                                    <Badge variant="outline" className="mt-2 capitalize">
+                                      {comment.category}
+                                    </Badge>
+                                  </div>
+                                ))}
+                                {comments.length > 2 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full text-primary"
+                                    onClick={() => setViewCommentsCompany(company)}
+                                  >
+                                    Show {comments.length - 2} more comments
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 text-center py-2">
+                                No comments yet. Be the first to comment!
+                              </p>
                             )}
                           </div>
                         </div>
-
-                        <div className="space-y-2">
-                          {company.companySize && (
-                            <div className="flex items-center text-gray-600">
-                              <Users className="h-4 w-4 mr-2" />
-                              {company.companySize}
-                            </div>
-                          )}
-                          {company.email && (
-                            <div className="flex items-center text-gray-600">
-                              <Mail className="h-4 w-4 mr-2" />
-                              {company.email}
-                            </div>
-                          )}
-                          {company.phone && (
-                            <div className="flex items-center text-gray-600">
-                              <Phone className="h-4 w-4 mr-2" />
-                              {company.phone}
-                            </div>
-                          )}
-                          {company.website && (
-                            <div className="flex items-center text-gray-600">
-                              <Globe className="h-4 w-4 mr-2" />
-                              {company.website}
-                            </div>
-                          )}
-                        </div>
-
-                        {company.address && (
-                          <div className="flex items-start text-sm text-gray-600">
-                            <MapPin className="h-4 w-4 mr-2 mt-0.5" />
-                            <span>{company.address}</span>
-                          </div>
-                        )}
-
-                        {company.notes && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                          <div className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                          <div className="flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                        </div>
-
-                        <div className="mt-4">
-                          <div className="pt-2 border-t border-gray-100 flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedCompany(company);
-                                setCommentModalMode('add');
-                                setIsCommentModalOpen(true);
-                              }}
-                            >
-                              Add Comment
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedCompany(company);
-                                setCommentModalMode('view');
-                                setIsCommentModalOpen(true);
-                              }}
-                            >
-                              Show Comments
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
               </div>
             ) : (
               <Card>
@@ -950,120 +1160,163 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Block Data</h2>
               <p className="text-gray-600">View blocked companies</p>
             </div>
-            {isLoadingAllCompanies ? (
+            {isLoadingBlock ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : blockCompanies.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {blockCompanies.slice(0, displayCount).map((company) => (
-                  <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium text-gray-900">{company.name}</h4>
-                            <p className="text-sm text-gray-500">ID: {company.id}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant="outline" className="capitalize">
-                              {company.industry}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              Blocked Data
-                            </Badge>
-                            {company.assignedToUserId && (
-                              <Badge variant="secondary" className="text-xs">
-                                Assigned
+                {[...blockCompanies]
+                  .sort((a, b) => {
+                    const aLatestComment = comments
+                      .filter(comment => comment.companyId === a.id)
+                      .sort((c1, c2) => new Date(c2.commentDate).getTime() - new Date(c1.commentDate).getTime())[0];
+                    const bLatestComment = comments
+                      .filter(comment => comment.companyId === b.id)
+                      .sort((c1, c2) => new Date(c2.commentDate).getTime() - new Date(c1.commentDate).getTime())[0];
+                    const aDate = aLatestComment ? new Date(aLatestComment.commentDate) : new Date(a.updatedAt || a.createdAt);
+                    const bDate = bLatestComment ? new Date(bLatestComment.commentDate) : new Date(b.updatedAt || b.createdAt);
+                    return bDate.getTime() - aDate.getTime();
+                  })
+                  .map((company) => (
+                    <Card key={company.id} className="relative hover:shadow-lg transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{company.name}</h4>
+                              <p className="text-sm text-gray-500">ID: {company.id}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge variant="outline" className="capitalize">
+                                {company.industry}
                               </Badge>
+                              <Badge variant="secondary" className="text-xs">
+                                Blocked Data
+                              </Badge>
+                              {company.assignedToUserId && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Assigned
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            {company.companySize && (
+                              <div className="flex items-center text-gray-600">
+                                <Users className="h-4 w-4 mr-2" />
+                                {company.companySize}
+                              </div>
+                            )}
+                            {company.email && (
+                              <div className="flex items-center text-gray-600">
+                                <Mail className="h-4 w-4 mr-2" />
+                                {company.email}
+                              </div>
+                            )}
+                            {company.phone && (
+                              <div className="flex items-center text-gray-600">
+                                <Phone className="h-4 w-4 mr-2" />
+                                {company.phone}
+                              </div>
+                            )}
+                            {company.website && (
+                              <div className="flex items-center text-gray-600">
+                                <Globe className="h-4 w-4 mr-2" />
+                                {company.website}
+                              </div>
+                            )}
+                          </div>
+
+                          {company.address && (
+                            <div className="flex items-start text-sm text-gray-600">
+                              <MapPin className="h-4 w-4 mr-2 mt-0.5" />
+                              <span>{company.address}</span>
+                            </div>
+                          )}
+
+                          {company.notes && (
+                            <div className="mt-2 text-sm text-gray-600">
+                              <p className="font-medium mb-1">Notes:</p>
+                              <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                            <div className="flex items-center">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                            <div className="flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => setViewCommentsCompany(company)}
+                                >
+                                  Show Comments
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => setSelectedCompany(company)}
+                                >
+                                  Add Comment
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {selectedCompany?.id === company.id && isLoadingComments ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            ) : selectedCompany?.id === company.id && comments.length > 0 ? (
+                              <div className="space-y-3 max-h-48 overflow-y-auto">
+                                {comments.slice(0, 2).map((comment) => (
+                                  <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {comment.user?.fullName || 'Unknown User'}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">{comment.content}</p>
+                                    <Badge variant="outline" className="mt-2 capitalize">
+                                      {comment.category}
+                                    </Badge>
+                                  </div>
+                                ))}
+                                {comments.length > 2 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full text-primary"
+                                    onClick={() => setViewCommentsCompany(company)}
+                                  >
+                                    Show {comments.length - 2} more comments
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 text-center py-2">
+                                No comments yet. Be the first to comment!
+                              </p>
                             )}
                           </div>
                         </div>
-
-                        <div className="space-y-2">
-                          {company.companySize && (
-                            <div className="flex items-center text-gray-600">
-                              <Users className="h-4 w-4 mr-2" />
-                              {company.companySize}
-                            </div>
-                          )}
-                          {company.email && (
-                            <div className="flex items-center text-gray-600">
-                              <Mail className="h-4 w-4 mr-2" />
-                              {company.email}
-                            </div>
-                          )}
-                          {company.phone && (
-                            <div className="flex items-center text-gray-600">
-                              <Phone className="h-4 w-4 mr-2" />
-                              {company.phone}
-                            </div>
-                          )}
-                          {company.website && (
-                            <div className="flex items-center text-gray-600">
-                              <Globe className="h-4 w-4 mr-2" />
-                              {company.website}
-                            </div>
-                          )}
-                        </div>
-
-                        {company.address && (
-                          <div className="flex items-start text-sm text-gray-600">
-                            <MapPin className="h-4 w-4 mr-2 mt-0.5" />
-                            <span>{company.address}</span>
-                          </div>
-                        )}
-
-                        {company.notes && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                          <div className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                          <div className="flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                        </div>
-
-                        <div className="mt-4">
-                          <div className="pt-2 border-t border-gray-100 flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedCompany(company);
-                                setCommentModalMode('add');
-                                setIsCommentModalOpen(true);
-                              }}
-                            >
-                              Add Comment
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedCompany(company);
-                                setCommentModalMode('view');
-                                setIsCommentModalOpen(true);
-                              }}
-                            >
-                              Show Comments
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
               </div>
             ) : (
               <Card>
@@ -1106,30 +1359,27 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleDataRequestSubmit} className="space-y-4">
-                      <div>
+                      <div className="md:col-span-2">
                         <Label htmlFor="requestType">Request Type</Label>
-                        <Select name="requestType" required>
-                          <SelectTrigger><SelectValue placeholder="Select request type" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="general">General Company Data</SelectItem>
-                            <SelectItem value="industry">Industry Specific</SelectItem>
-                            <SelectItem value="geographic">Geographic Region</SelectItem>
-                            <SelectItem value="size">Company Size Range</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <select
+                          name="requestType"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                          required
+                        >
+                          <option value="">Select request type</option>
+                          <option value="company_data">Company Data</option>
+                          <option value="facebook_data">Facebook Data</option>
+                          <option value="other">Other</option>
+                        </select>
                       </div>
-                      <div>
+                      <div className="md:col-span-2">
                         <Label htmlFor="industry">Industry (Optional)</Label>
-                        <Select name="industry">
-                          <SelectTrigger><SelectValue placeholder="All Industries" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Industries</SelectItem>
-                            <SelectItem value="technology">Technology</SelectItem>
-                            <SelectItem value="healthcare">Healthcare</SelectItem>
-                            <SelectItem value="finance">Finance</SelectItem>
-                            <SelectItem value="retail">Retail</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <input
+                          type="text"
+                          name="industry"
+                          placeholder="e.g., Technology, Healthcare, etc."
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        />
                       </div>
                       <div className="md:col-span-2">
                         <Label htmlFor="justification">Justification</Label>
@@ -1142,7 +1392,14 @@ export default function Dashboard() {
                         />
                       </div>
                       <Button type="submit" disabled={createRequestMutation.isPending} className="md:col-span-2">
-                        {createRequestMutation.isPending ? "Submitting..." : "Submit Request"}
+                        {createRequestMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          "Submit Request"
+                        )}
                       </Button>
                     </form>
                   </CardContent>
@@ -1247,7 +1504,7 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Assigned Companies</h2>
               <p className="text-gray-600">View companies assigned to you</p>
             </div>
-            {isLoadingAllCompanies ? (
+            {isLoadingMyCompanies ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
@@ -1266,35 +1523,36 @@ export default function Dashboard() {
                             <Badge variant="outline" className="capitalize">
                               {company.industry}
                             </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              Assigned
+                            </Badge>
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          {company.companySize && (
-                            <div className="flex items-center text-gray-600">
-                              <Users className="h-4 w-4 mr-2" />
-                              {company.companySize}
-                            </div>
-                          )}
-                          {company.email && (
-                            <div className="flex items-center text-gray-600">
-                              <Mail className="h-4 w-4 mr-2" />
-                              {company.email}
-                            </div>
-                          )}
-                          {company.phone && (
-                            <div className="flex items-center text-gray-600">
-                              <Phone className="h-4 w-4 mr-2" />
-                              {company.phone}
-                            </div>
-                          )}
-                          {company.website && (
-                            <div className="flex items-center text-gray-600">
-                              <Globe className="h-4 w-4 mr-2" />
-                              {company.website}
-                            </div>
-                          )}
-                        </div>
+                        {company.companySize && (
+                          <div className="flex items-center text-gray-600">
+                            <Users className="h-4 w-4 mr-2" />
+                            {company.companySize}
+                          </div>
+                        )}
+                        {company.email && (
+                          <div className="flex items-center text-gray-600">
+                            <Mail className="h-4 w-4 mr-2" />
+                            {company.email}
+                          </div>
+                        )}
+                        {company.phone && (
+                          <div className="flex items-center text-gray-600">
+                            <Phone className="h-4 w-4 mr-2" />
+                            {company.phone}
+                          </div>
+                        )}
+                        {company.website && (
+                          <div className="flex items-center text-gray-600">
+                            <Globe className="h-4 w-4 mr-2" />
+                            {company.website}
+                          </div>
+                        )}
 
                         {company.address && (
                           <div className="flex items-start text-sm text-gray-600">
@@ -1303,50 +1561,74 @@ export default function Dashboard() {
                           </div>
                         )}
 
-                        {company.notes && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            <p className="font-medium mb-1">Notes:</p>
-                            <p className="whitespace-pre-line bg-gray-50 p-2 rounded">{company.notes}</p>
+                        <div className="pt-2 border-t border-gray-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setViewCommentsCompany(company)}
+                              >
+                                Show Comments
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedCompany(company)}
+                              >
+                                Add Comment
+                              </Button>
+                            </div>
                           </div>
-                        )}
+
+                          {selectedCompany?.id === company.id && isLoadingComments ? (
+                            <div className="flex items-center justify-center py-4">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            </div>
+                          ) : selectedCompany?.id === company.id && comments.length > 0 ? (
+                            <div className="space-y-3 max-h-48 overflow-y-auto">
+                              {comments.slice(0, 2).map((comment) => (
+                                <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {comment.user?.fullName || 'Unknown User'}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      {format(new Date(comment.commentDate), 'MMM d, yyyy h:mm a')}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-600">{comment.content}</p>
+                                  <Badge variant="outline" className="mt-2 capitalize">
+                                    {comment.category}
+                                  </Badge>
+                                </div>
+                              ))}
+                              {comments.length > 2 && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full text-primary"
+                                  onClick={() => setViewCommentsCompany(company)}
+                                >
+                                  Show {comments.length - 2} more comments
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 text-center py-2">
+                              No comments yet. Be the first to comment!
+                            </p>
+                          )}
+                        </div>
 
                         <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
                           <div className="flex items-center">
                             <Calendar className="h-3 w-3 mr-1" />
-                            {company.createdAt ? format(new Date(company.createdAt), 'MMM d, yyyy') : 'N/A'}
+                            {format(new Date(company.createdAt), 'MMM d, yyyy')}
                           </div>
                           <div className="flex items-center">
                             <Clock className="h-3 w-3 mr-1" />
-                            {company.updatedAt ? format(new Date(company.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                          </div>
-                        </div>
-
-                        <div className="mt-4">
-                          <div className="pt-2 border-t border-gray-100 flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedCompany(company);
-                                setCommentModalMode('add');
-                                setIsCommentModalOpen(true);
-                              }}
-                            >
-                              Add Comment
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedCompany(company);
-                                setCommentModalMode('view');
-                                setIsCommentModalOpen(true);
-                              }}
-                            >
-                              Show Comments
-                            </Button>
+                            {format(new Date(company.updatedAt), 'MMM d, yyyy')}
                           </div>
                         </div>
                       </div>
@@ -1388,6 +1670,7 @@ export default function Dashboard() {
           hotDataCount={hotCompanies.length}
           blockDataCount={blockCompanies.length}
           logoutMutation={logoutMutation}
+          general={String(generalCompanies.length)}
         />
         <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
           <div className="max-w-7xl mx-auto">
@@ -1399,14 +1682,19 @@ export default function Dashboard() {
       {selectedCompany && (
         <CommentModal
           company={selectedCompany}
-          isOpen={isCommentModalOpen}
-          onClose={() => {
-            setIsCommentModalOpen(false);
-            setSelectedCompany(null);
-          }}
-          viewMode={commentModalMode}
+          isOpen={!!selectedCompany}
+          onClose={() => setSelectedCompany(null)}
+        />
+      )}
+
+      {viewCommentsCompany && (
+        <ViewCommentsModal
+          company={viewCommentsCompany}
+          isOpen={!!viewCommentsCompany}
+          onClose={() => setViewCommentsCompany(null)}
         />
       )}
     </div>
   );
 }
+
